@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hello Hong Kong Minecraft 3D Map</title>
+	<style>
+
+	body{
+		margin:0;
+		overflow:hidden;
+	}
+
+	#info{
+		position:absolute;
+		top:10px;
+		left:10px;
+		color:white;
+		background:rgba(0,0,0,.5);
+		padding:10px;
+		z-index:100;
+	}
+
+</style>
+   	<script type="importmap">
+	  {
+		"imports": {
+		  "three": "./scripts/three.module.js",
+		  "OrbitControls": "./scripts/OrbitControls.js"
+		}
+	  }
+	</script>
+</head>
+<body>
+  
+	<script type="module" src="main.js"></script>
+</body>
+</html>
