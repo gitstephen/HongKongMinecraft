@@ -1,59 +1,59 @@
-import * as THREE from "three";
-import { OrbitControls } from "OrbitControls";
-  
-////////////////////////////////////////////////////////////
-// 基本設定
-////////////////////////////////////////////////////////////
- 
-const GEOJSON_FILE =
-    "/hk_coast.json";
+import * as THREE from 'three';
+import { OrbitControls } from 'OrbitControls';
 
-const MAP_SIZE = 150;
+/**************************************************
+ * Config
+ **************************************************/
 
-const BLOCK_SIZE = 100;
+const CELL_SIZE = 300; 
 
-const SEA_SIZE =
-    MAP_SIZE *
-    BLOCK_SIZE *
-    1.5;
+const LAND_HEIGHT = 2;
+const COAST_HEIGHT = 1; 
+const COAST_WIDTH = 2;
+const SHALLOW_HEIGHT = 0.5;
 
-const SHALLOW_LEVEL =
-    BLOCK_SIZE * 0.25;
+/* Color */
 
-const COAST_LEVEL =
-    BLOCK_SIZE;
+const COLORS = {
+    LAND: 0x55aa55,  // Minecraft 草地
+	LAND_TOP:0x74b85b,
+    LAND_SIDE:0x8b5a2b,	
+    DIRT: 0x8b5a2b,
+    COAST: 0xe6cf7a,
+    SHALLOW: 0x4fc3f7,
+    OCEAN: 0x1565c0,
+    SKY: 0xb3e5fc
+};
 
-const LAND_LEVEL =
-    BLOCK_SIZE * 2;
+const MATERIALS = {
+    LAND_OPACITY: 1.0,
+    SHALLOW_OPACITY: 0.75,
+    OCEAN_OPACITY: 0.85
+};
 
-////////////////////////////////////////////////////////
-// SCENE
-////////////////////////////////////////////////////////
+const GEOJSON_URL = "/hk_coast.json";
+
+
+/**************************************************
+ * Scene
+ **************************************************/
 
 const scene = new THREE.Scene();
 
-scene.background = new THREE.Color(0x87ceeb);
-
-////////////////////////////////////////////////////////
-// CAMERA
-////////////////////////////////////////////////////////
+scene.background = new THREE.Color(COLORS.OCEAN);
 
 const camera = new THREE.PerspectiveCamera(
     60,
-    window.innerWidth / window.innerHeight,
+	window.innerWidth/window.innerHeight,
     1,
-    1000000
+    500000
 );
 
 camera.position.set(
-    120000,
-    70000,
-    120000
+    20000,
+    15000,
+   20000
 );
-
-////////////////////////////////////////////////////////
-// RENDERER
-////////////////////////////////////////////////////////
 
 const renderer = new THREE.WebGLRenderer({
     antialias:true
@@ -68,25 +68,15 @@ document.body.appendChild(
     renderer.domElement
 );
 
-////////////////////////////////////////////////////////
-// CONTROLS
-////////////////////////////////////////////////////////
-
-const controls =
-new OrbitControls(
+const controls = new OrbitControls(
     camera,
     renderer.domElement
 );
 
 controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.target.set(0,0,0);
+controls.minDistance = 100;
+controls.maxDistance = 1000000;
 
-////////////////////////////////////////////////////////
-// LIGHT
-////////////////////////////////////////////////////////
-
-scene.add(new THREE.AmbientLight(0xffffff,1.6));
 
 const sun = new THREE.DirectionalLight(
     0xffffff,
@@ -94,82 +84,73 @@ const sun = new THREE.DirectionalLight(
 );
 
 sun.position.set(
-    100000,
-    120000,
-    80000
+    10000,
+    20000,
+    10000
 );
 
 scene.add(sun);
 
-////////////////////////////////////////////////////////
-// DEEP OCEAN
-////////////////////////////////////////////////////////
-
-const sea = new THREE.Mesh(
-
-    new THREE.BoxGeometry(
-        SEA_SIZE,
-        BLOCK_SIZE,
-        SEA_SIZE
-    ),
-
-    new THREE.MeshPhongMaterial({
-
-        color:0x084398,
-
-        transparent:true,
-
-        opacity:0.95
-
-    })
-
+scene.add(
+    new THREE.AmbientLight(
+        0xffffff,
+        1
+    )
 );
 
-sea.position.y = -BLOCK_SIZE / 2;
 
-scene.add(sea);
+/**************************************************
+ * Geo Conversion (World Coordinate)
+ **************************************************/
 
-////////////////////////////////////////////////////////
-// POINT IN POLYGON
-////////////////////////////////////////////////////////
+function lonLatToWorld(lon, lat){
 
-function pointInPolygon(point, polygon){
+    const R = 6378137;
 
-    let inside = false;
+    const x = R * THREE.MathUtils.degToRad(lon);
+
+    const y = -R * Math.log(
+				Math.tan(
+					Math.PI/4 +
+					THREE.MathUtils.degToRad(lat)/2
+				)
+			);
+
+    return {x,y};
+}
+
+
+/**************************************************
+ * Point In Polygon (Rasterization)
+ **************************************************/
+
+function pointInPolygon(x,y,polygon){
+
+    let inside=false;
 
     for(
-        let i=0,
-        j=polygon.length-1;
+        let i=0,j=polygon.length-1;
         i<polygon.length;
         j=i++
     ){
 
-        const xi = polygon[i][0];
-        const yi = polygon[i][1];
+        const xi=polygon[i][0];
+        const yi=polygon[i][1];
 
-        const xj = polygon[j][0];
-        const yj = polygon[j][1];
+        const xj=polygon[j][0];
+        const yj=polygon[j][1];
 
-        const intersect =
+        const intersect=
 
-        ((yi > point[1]) !==
-        (yj > point[1]))
+            ((yi>y)!=(yj>y))
 
-        &&
+            &&
 
-        (
-            point[0]
-
-            <
-
-            ((xj-xi)
-            *
-            (point[1]-yi))
-            /
-            (yj-yi)
-
-            + xi
-        );
+            (
+                x <
+                (xj-xi)*(y-yi)/(yj-yi)
+                + xi
+            );
 
         if(intersect)
             inside=!inside;
@@ -178,424 +159,469 @@ function pointInPolygon(point, polygon){
     return inside;
 }
 
-////////////////////////////////////////////////////////
-// LOAD GEOJSON
-////////////////////////////////////////////////////////
+function sampleCell(x, y, polygon)
+{
+    const s = CELL_SIZE;
 
-const geojson = await fetch(GEOJSON_FILE).then(r=>r.json());
+    let count = 0;
 
-const polygons = [];
+    const points = [
 
-geojson.features.forEach(feature=>{
+        [x + s*0.25, y + s*0.25],
+        [x + s*0.75, y + s*0.25],
 
-    const g = feature.geometry;
-
-    if(g.type==="Polygon"){
-
-        polygons.push(
-            g.coordinates[0]
-        );
-    }
-
-    else if(g.type==="MultiPolygon"){
-
-        g.coordinates.forEach(poly=>{
-
-            polygons.push(
-                poly[0]
-            );
-
-        });
-
-    }
-
-});
-
-////////////////////////////////////////////////////////
-// BOUNDS
-////////////////////////////////////////////////////////
-
-let minLon = Infinity;
-let maxLon = -Infinity;
-
-let minLat = Infinity;
-let maxLat = -Infinity;
-
-for(const poly of polygons){
-
-    for(const p of poly){
-
-        minLon =
-        Math.min(minLon,p[0]);
-
-        maxLon =
-        Math.max(maxLon,p[0]);
-
-        minLat =
-        Math.min(minLat,p[1]);
-
-        maxLat =
-        Math.max(maxLat,p[1]);
-
-    }
-
-}
-
-////////////////////////////////////////////////////////
-// RASTERIZE
-////////////////////////////////////////////////////////
-
-const blocks = [];
-const landMap = new Set();
-
-for(let gx=0; gx<MAP_SIZE; gx++){
-
-    for(let gz=0; gz<MAP_SIZE; gz++){
-
-        const lon =
-
-            minLon +
-
-            (gx / MAP_SIZE)
-
-            *
-
-            (maxLon - minLon);
-
-        const lat =
-
-            maxLat -
-
-            (gz / MAP_SIZE)
-
-            *
-
-            (maxLat - minLat);
-
-        let isLand = false;
-
-        for(const poly of polygons){
-
-            if(
-                pointInPolygon(
-                    [lon,lat],
-                    poly
-                )
-            ){
-                isLand = true;
-                break;
-            }
-        }
-
-        if(isLand){
-
-            blocks.push({
-                x:gx,
-                z:gz
-            });
-
-            landMap.add(
-                `${gx},${gz}`
-            );
-
-        }
-
-    }
-
-}
-
-////////////////////////////////////////////////////////
-// COAST DETECTION (2 BLOCKS)
-////////////////////////////////////////////////////////
-
-function isCoast(x,z){
-
-    for(let dx=-2; dx<=2; dx++){
-
-        for(let dz=-2; dz<=2; dz++){
-
-            if(dx===0 && dz===0)
-                continue;
-
-            const dist =
-                Math.abs(dx)
-                +
-                Math.abs(dz);
-
-            if(dist > 2)
-                continue;
-
-            if(
-                !landMap.has(
-                    `${x+dx},${z+dz}`
-                )
-            ){
-                return true;
-            }
-
-        }
-
-    }
-
-    return false;
-
-}
-
-////////////////////////////////////////////////////////
-// CLASSIFY
-////////////////////////////////////////////////////////
-
-const coastBlocks = [];
-const grassBlocks = [];
-
-blocks.forEach(b=>{
-
-    if(
-        isCoast(
-            b.x,
-            b.z
-        )
-    ){
-        coastBlocks.push(b);
-    }
-    else{
-        grassBlocks.push(b);
-    }
-
-});
-
-////////////////////////////////////////////////////////
-// SHALLOW WATER
-////////////////////////////////////////////////////////
-
-const shallowBlocks = [];
-const shallowMap = new Set();
-
-coastBlocks.forEach(block=>{
-
-    const dirs = [
-
-        [1,0],
-        [-1,0],
-
-        [0,1],
-        [0,-1],
-
-        [1,1],
-        [-1,1],
-
-        [1,-1],
-        [-1,-1]
+        [x + s*0.25, y + s*0.75],
+        [x + s*0.75, y + s*0.75]
 
     ];
 
-    dirs.forEach(([dx,dz])=>{
+    for(const p of points)
+    {
+        if(
+            pointInPolygon(
+                p[0],
+                p[1],
+                polygon
+            )
+        ){
+            count++;
+        }
+    }
 
-        const x = block.x + dx;
-        const z = block.z + dz;
+    return count;
+} 
+ 
+function rasterization(polygons, minX, maxX, minY, maxY) {
+    if (!CELL_SIZE || CELL_SIZE <= 0) throw new Error("CELL_SIZE 非法");
+    if (!polygons?.length) return [];
 
-        const key =
-        `${x},${z}`;
+    const land = [];
+    const cols = Math.ceil((maxX - minX) / CELL_SIZE);
+    const rows = Math.ceil((maxY - minY) / CELL_SIZE);
 
-        if(landMap.has(key))
-            return;
+    // 1. 預先算 bbox
+    const polyBounds = polygons.map(poly => ({
+        poly,
+        bx0: Math.min(...poly.map(p=>p[0])),
+        bx1: Math.max(...poly.map(p=>p[0])),
+        by0: Math.min(...poly.map(p=>p[1])),
+        by1: Math.max(...poly.map(p=>p[1])),
+    }));
 
-        if(shallowMap.has(key))
-            return;
+    for (let ix = 0; ix < cols; ix++) {
+        for (let iy = 0; iy < rows; iy++) {
+            const x = minX + ix * CELL_SIZE;
+            const y = minY + iy * CELL_SIZE;
+            const cx = x + CELL_SIZE * 0.5;
+            const cy = y + CELL_SIZE * 0.5;
 
-        shallowMap.add(key);
+            // 2. 有任何一個多邊形包含就算是陸地
+            const isLand = polyBounds.some(({poly, bx0, bx1, by0, by1}) => {
+                if (cx < bx0 || cx > bx1 || cy < by0 || cy > by1) return false;
+                return pointInPolygon(cx, cy, poly);
+            });
 
-        shallowBlocks.push({
-            x,
-            z
-        });
+            if (isLand) land.push({ x, y, cx, cy, type: "land" });
+        }
+    }
+    return land;
+}
 
+/**************************************************
+ * Load GeoJSON
+ **************************************************/
+
+async function load(){
+
+    const geojson = await fetch(GEOJSON_URL).then(r=>r.json());
+
+    const polygons=[];
+
+    let minX=Infinity;
+    let minY=Infinity;
+
+    let maxX=-Infinity;
+    let maxY=-Infinity;
+
+    geojson.features.forEach(feature=>{
+
+        const geometry = feature.geometry;
+
+        if (geometry.type==="Polygon") {
+
+            geometry.coordinates.forEach (
+                ring => {
+                    const poly=[];
+
+                    ring.forEach(coord=>{
+
+                        const p = lonLatToWorld(
+                            coord[0],
+                            coord[1]
+                        );
+
+                        poly.push([
+                            p.x,
+                            p.y
+                        ]);
+
+                        minX=Math.min(minX,p.x);
+                        minY=Math.min(minY,p.y);
+
+                        maxX=Math.max(maxX,p.x);
+                        maxY=Math.max(maxY,p.y);
+
+                    });
+
+                    polygons.push(poly);
+                }
+            );
+        }
+
+        if (geometry.type === "MultiPolygon") {
+
+            geometry.coordinates.forEach(
+                polygon=>{
+                    polygon.forEach(ring=>{
+
+                        const poly=[];
+
+                        ring.forEach(coord=>{
+                            const p = lonLatToWorld(
+                                coord[0],
+                                coord[1]
+                            );
+
+                            poly.push([
+                                p.x,
+                                p.y
+                            ]);
+
+                            minX=Math.min(minX,p.x);
+                            minY=Math.min(minY,p.y);
+
+                            maxX=Math.max(maxX,p.x);
+                            maxY=Math.max(maxY,p.y);
+
+                        });
+
+                        polygons.push(poly);
+
+                    });
+                }
+            );
+        }
     });
 
-});
+    const offsetX = (minX+maxX) * 0.5;
+    const offsetY = (minY+maxY) * 0.5;
 
-////////////////////////////////////////////////////////
-// GEOMETRY
-////////////////////////////////////////////////////////
+	//creare minecraft network
+    const land = rasterization( polygons, minX, maxX, minY, maxY); 
 
-const blockGeometry =
-new THREE.BoxGeometry(
-    BLOCK_SIZE,
-    BLOCK_SIZE,
-    BLOCK_SIZE
-);
+	document.getElementById("landcell").innerHTML = "Land Cell: " + land.length;
 
-const shallowGeometry =
-new THREE.BoxGeometry(
-    BLOCK_SIZE,
-    BLOCK_SIZE * 0.5,
-    BLOCK_SIZE
-);
+	const DIRECTIONS8 = [
 
-////////////////////////////////////////////////////////
-// MATERIAL
-////////////////////////////////////////////////////////
+		[-1,-1],
+		[ 0,-1],
+		[ 1,-1],
+		[-1, 0],
+		[ 1, 0],
+		[-1, 1],
+		[ 0, 1],
+		[ 1, 1]
 
-const grassMaterial = [
+	];
 
-    new THREE.MeshLambertMaterial({
-        color:0x6D4C41
-    }),
+    const landMap = new Map();
 
-    new THREE.MeshLambertMaterial({
-        color:0x6D4C41
-    }),
+	land.forEach(c => { landMap.set(`${c.x}_${c.y}`, c); });
 
-    new THREE.MeshLambertMaterial({
-        color:0x4CAF50
-    }),
+    function exists(x,y) {
+        return landMap.has( 
+            `${x}_${y}`
+        );
+    }
+ 
+	function isCoast(cell) {
+		for(const dir of DIRECTIONS8)
+		{
+			const nx =
+			   cell.x +
+			   dir[0] *
+			   CELL_SIZE;
 
-    new THREE.MeshLambertMaterial({
-        color:0x6D4C41
-    }),
+			const ny =
+			   cell.y +
+			   dir[1] *
+			   CELL_SIZE;
 
-    new THREE.MeshLambertMaterial({
-        color:0x6D4C41
-    }),
+			if(
+			   !landMap.has(
+				  `${nx}_${ny}`
+			   )
+			){
+				return true;
+			}
+		}
 
-    new THREE.MeshLambertMaterial({
-        color:0x6D4C41
-    })
+		return false;
+	}
 
-];
 
-const coastMaterial =
-new THREE.MeshLambertMaterial({
-    color:0xFFE082
-});
+    /******************************
+    * Coastline
+    ******************************/ 
 
-const shallowMaterial =
-new THREE.MeshLambertMaterial({
-    color:0x116BB5
-});
+	const coast = [];
 
-////////////////////////////////////////////////////////
-// MESH
-////////////////////////////////////////////////////////
+	let frontier = land.filter(isCoast);
 
-const grassMesh =
-new THREE.InstancedMesh(
-    blockGeometry,
-    grassMaterial,
-    grassBlocks.length
-);
+	for(let depth=0;
+			depth<COAST_WIDTH;
+			depth++)
+		{
 
-const coastMesh =
-new THREE.InstancedMesh(
-    blockGeometry,
-    coastMaterial,
-    coastBlocks.length
-);
+		const next = [];
 
-const shallowMesh =
-new THREE.InstancedMesh(
-    shallowGeometry,
-    shallowMaterial,
-    shallowBlocks.length
-);
+			frontier.forEach(cell=>{
 
-////////////////////////////////////////////////////////
-// BUILD
-////////////////////////////////////////////////////////
+			if(cell.type==="coast")
+				return;
 
-const matrix =
-new THREE.Matrix4();
+			cell.type="coast";
 
-const offsetX =
-MAP_SIZE / 2;
+			coast.push(cell);
+			
+			const dirs = [
 
-const offsetZ =
-MAP_SIZE / 2;
+				[1,0],
+                [-1,0],
+                [0,1],
+                [0,-1]
 
-shallowBlocks.forEach((b,i)=>{
+			];
+ 
+			dirs.forEach( d => {
+				const nx = cell.x + d[0]*CELL_SIZE;
 
-    matrix.makeTranslation(
+				const ny = cell.y + d[1]*CELL_SIZE;
 
-        (b.x-offsetX)
-        *
-        BLOCK_SIZE,
+				const n = landMap.get(`${nx}_${ny}`);
 
-        SHALLOW_LEVEL,
+				if (n && n.type !== "coast"){
+					next.push(n);
+				}
+			});
+		});
 
-        (b.z-offsetZ)
-        *
-        BLOCK_SIZE
+		frontier = next;
+	}
 
+    /******************************
+     * Shallow Water
+     ******************************/
+
+    const shallowMap = new Map();
+
+    coast.forEach( cell=>{
+		 
+		const dirs = [
+
+			[1,0],
+            [-1,0],
+            [0,1],
+            [0,-1]
+		];
+
+        dirs.forEach(d=>{
+
+            const nx=
+            cell.x +
+            d[0]*CELL_SIZE;
+
+            const ny=
+            cell.y +
+            d[1]*CELL_SIZE;
+
+            if(!exists(nx,ny)){
+
+                shallowMap.set(
+                    `${nx}_${ny}`,
+                    {x:nx,y:ny}
+                );
+            }
+        });
+    });
+
+    const shallow = [...shallowMap.values()]; 
+	
+	createGrassLayer(
+		land, 
+		COLORS.LAND,
+		LAND_HEIGHT
+	);
+ 
+	createInstancedLayer(
+		coast,
+		COLORS.COAST,
+		COAST_HEIGHT
+	);
+
+    createInstancedLayer(
+        shallow,
+        COLORS.SHALLOW,
+        SHALLOW_HEIGHT
     );
 
-    shallowMesh.setMatrixAt(
-        i,
-        matrix
+
+    /******************************
+     * Ocean Plane
+     ******************************/
+	const oceanSize = Math.max(
+		maxX-minX,
+		maxY-minY
+	) * 1.5;
+
+    const ocean = new THREE.Mesh(
+
+        new THREE.PlaneGeometry(
+            oceanSize,
+            oceanSize
+        ),
+
+        new THREE.MeshPhongMaterial({
+
+            color: COLORS.OCEAN,
+			transparent: true,
+			opacity: MATERIALS.OCEAN_OPACITY
+
+        })
     );
 
-});
+    ocean.rotation.x = -Math.PI/2;
 
-coastBlocks.forEach((b,i)=>{
+    scene.add(ocean);
 
-    matrix.makeTranslation(
 
-        (b.x-offsetX)
-        *
-        BLOCK_SIZE,
+    /******************************
+     * Center Map
+     ******************************/
 
-        COAST_LEVEL,
+    scene.children.forEach(obj=>{
 
-        (b.z-offsetZ)
-        *
-        BLOCK_SIZE
+        if(obj.isMesh){
+            obj.position.x -= offsetX;
+            obj.position.z -= offsetY;
+        } 
+    }); 
+}
 
+function createGrassLayer(cells, color, height)
+{ 
+	const pureLand = cells.filter(
+			c => c.type !== "coast"
+		);
+		
+	const grassTopMaterial = new THREE.MeshLambertMaterial({
+		color: COLORS.LAND_TOP
+	});
+
+	const dirtMaterial = new THREE.MeshLambertMaterial({
+		color: COLORS.LAND_SIDE
+	});
+
+	const landMaterials = [
+		dirtMaterial,      // right
+		dirtMaterial,      // left
+		grassTopMaterial,  // top
+		dirtMaterial,      // bottom
+		dirtMaterial,      // front
+		dirtMaterial       // back
+	]; 
+	
+	const geometry = new THREE.BoxGeometry(
+		1,
+		1,
+		1
+	);
+
+	const mesh = new THREE.InstancedMesh(
+		geometry,
+		landMaterials,
+		pureLand.length
+	); 
+
+    const cube = new THREE.Object3D();
+
+	pureLand.forEach((cell, i) => {
+
+		cube.position.set(
+			cell.x,
+			height * CELL_SIZE * 0.5,
+			cell.y
+		);
+
+		cube.scale.set(
+			CELL_SIZE,
+			CELL_SIZE * height,
+			CELL_SIZE
+		);
+ 
+		cube.updateMatrix();
+		
+		mesh.setMatrixAt(
+			i,
+			cube.matrix
+		);
+	});
+
+    mesh.instanceMatrix.needsUpdate = true; 
+
+    scene.add(mesh);
+}
+
+function createInstancedLayer(cells, color, height) {
+
+    const geometry = new THREE.BoxGeometry(
+        CELL_SIZE,
+        CELL_SIZE*height,
+        CELL_SIZE
     );
 
-    coastMesh.setMatrixAt(
-        i,
-        matrix
+    const material=  new THREE.MeshLambertMaterial({
+        color
+    });
+
+    const mesh = new THREE.InstancedMesh(
+        geometry,
+        material,
+        cells.length
     );
 
-});
+    const matrix = new THREE.Matrix4();
 
-grassBlocks.forEach((b,i)=>{
+    cells.forEach((cell,i)=>{
 
-    matrix.makeTranslation(
+        matrix.makeTranslation(
+			cell.x,
+            CELL_SIZE*height/2,
+            cell.y
+        );
 
-        (b.x-offsetX)
-        *
-        BLOCK_SIZE,
+        mesh.setMatrixAt(i,matrix);
+    });
 
-        LAND_LEVEL,
+    mesh.instanceMatrix.needsUpdate = true;
 
-        (b.z-offsetZ)
-        *
-        BLOCK_SIZE
-
-    );
-
-    grassMesh.setMatrixAt(
-        i,
-        matrix
-    );
-
-});
-
-scene.add(shallowMesh);
-scene.add(coastMesh);
-scene.add(grassMesh);
-
-////////////////////////////////////////////////////////
-// RESIZE
-////////////////////////////////////////////////////////
+    scene.add(mesh);
+}
 
 window.addEventListener(
     "resize",
-    ()=>{
-
-        camera.aspect =
-        window.innerWidth /
-        window.innerHeight;
+    () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
 
         camera.updateProjectionMatrix();
 
@@ -603,13 +629,10 @@ window.addEventListener(
             window.innerWidth,
             window.innerHeight
         );
-
     }
 );
 
-////////////////////////////////////////////////////////
-// RENDER LOOP
-////////////////////////////////////////////////////////
+load();
 
 function animate(){
 
@@ -623,7 +646,7 @@ function animate(){
         scene,
         camera
     );
-
 }
 
-animate();  
+animate();
+ 
