@@ -5,11 +5,11 @@ import { OrbitControls } from 'OrbitControls';
  * Config
  **************************************************/
 
-const CELL_SIZE = 300; 
+const CELL_SIZE = 350; 
 
 const LAND_HEIGHT = 2;
 const COAST_HEIGHT = 1; 
-const COAST_WIDTH = 2;
+const COAST_WIDTH = 1;
 const SHALLOW_HEIGHT = 0.5;
 
 /* Color */
@@ -52,7 +52,7 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(
     20000,
     15000,
-   20000
+    20000
 );
 
 const renderer = new THREE.WebGLRenderer({
@@ -189,42 +189,74 @@ function sampleCell(x, y, polygon)
     }
 
     return count;
-} 
+}  
  
-function rasterization(polygons, minX, maxX, minY, maxY) {
-    if (!CELL_SIZE || CELL_SIZE <= 0) throw new Error("CELL_SIZE 非法");
-    if (!polygons?.length) return [];
+function rasterizationWithRetreat(polygons, minX, maxX, minY, maxY, cellSize, retreat = 1) 
+{
+    // --- 1. 先用你原來的邏輯算出所有陸地 (用我上一版優化過的版本) ---
+    const cols = Math.ceil((maxX - minX) / cellSize);
+    const rows = Math.ceil((maxY - minY) / cellSize);
+    const half = cellSize * 0.5;
 
-    const land = [];
-    const cols = Math.ceil((maxX - minX) / CELL_SIZE);
-    const rows = Math.ceil((maxY - minY) / CELL_SIZE);
+    const polyBounds = polygons.map(poly => {
+        let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+        for (const [x, y] of poly) {
+            if (x < bx0) bx0 = x; if (x > bx1) bx1 = x;
+            if (y < by0) by0 = y; if (y > by1) by1 = y;
+        }
+        return { poly, bx0, bx1, by0, by1 };
+    });
 
-    // 1. 預先算 bbox
-    const polyBounds = polygons.map(poly => ({
-        poly,
-        bx0: Math.min(...poly.map(p=>p[0])),
-        bx1: Math.max(...poly.map(p=>p[0])),
-        by0: Math.min(...poly.map(p=>p[1])),
-        by1: Math.max(...poly.map(p=>p[1])),
-    }));
+    const landSet = new Set(); // key: `${ix},${iy}`
+    const landMap = new Map();  // key -> {x,y,cx,cy...}
 
-    for (let ix = 0; ix < cols; ix++) {
-        for (let iy = 0; iy < rows; iy++) {
-            const x = minX + ix * CELL_SIZE;
-            const y = minY + iy * CELL_SIZE;
-            const cx = x + CELL_SIZE * 0.5;
-            const cy = y + CELL_SIZE * 0.5;
-
-            // 2. 有任何一個多邊形包含就算是陸地
-            const isLand = polyBounds.some(({poly, bx0, bx1, by0, by1}) => {
-                if (cx < bx0 || cx > bx1 || cy < by0 || cy > by1) return false;
-                return pointInPolygon(cx, cy, poly);
-            });
-
-            if (isLand) land.push({ x, y, cx, cy, type: "land" });
+    for (const { poly, bx0, bx1, by0, by1 } of polyBounds) {
+        const ix0 = Math.max(0, Math.floor((bx0 - minX) / cellSize));
+        const ix1 = Math.min(cols - 1, Math.floor((bx1 - minX) / cellSize));
+        const iy0 = Math.max(0, Math.floor((by0 - minY) / cellSize));
+        const iy1 = Math.min(rows - 1, Math.floor((by1 - minY) / cellSize));
+        for (let ix = ix0; ix <= ix1; ix++) {
+            for (let iy = iy0; iy <= iy1; iy++) {
+                const key = `${ix},${iy}`;
+                if (landSet.has(key)) continue;
+                const cx = minX + ix * cellSize + half;
+                const cy = minY + iy * cellSize + half;
+                if (cx < bx0 || cx > bx1 || cy < by0 || cy > by1) continue;
+                if (pointInPolygon(cx, cy, poly)) {
+                    landSet.add(key);
+                    landMap.set(key, { ix, iy, x: minX + ix * cellSize, y: minY + iy * cellSize, cx, cy, type: "land" });
+                }
+            }
         }
     }
-    return land;
+
+    // --- 2. 向後退 retreat 格 ---
+    // 4方向退 = 十字，8方向退 = 一圈都退，更自然
+    const DIRS_4 = [[1,0],[-1,0],[0,1],[0,-1]];
+    const DIRS_8 = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    const DIRS = DIRS_4; // 想退得狠一點用 8，想保留細尖角用 4
+
+    let currentSet = landSet;
+    for (let r = 0; r < retreat; r++) {
+        const toRemove = [];
+        for (const key of currentSet) {
+            const [ix, iy] = key.split(',').map(Number);
+            // 只要有一個鄰居不是陸地，它就是海岸線，要退掉
+            for (const [dx, dy] of DIRS) {
+                const nkey = `${ix + dx},${iy + dy}`;
+                if (!currentSet.has(nkey)) {
+                    toRemove.push(key);
+                    break;
+                }
+            }
+        }
+        if (toRemove.length === 0) break;
+        const nextSet = new Set(currentSet);
+        toRemove.forEach(k => nextSet.delete(k));
+        currentSet = nextSet;
+    }
+
+    return Array.from(currentSet).map(k => landMap.get(k));
 }
 
 /**************************************************
@@ -316,8 +348,8 @@ async function load(){
     const offsetX = (minX+maxX) * 0.5;
     const offsetY = (minY+maxY) * 0.5;
 
-	//creare minecraft network
-    const land = rasterization( polygons, minX, maxX, minY, maxY); 
+	//creare minecraft network 
+	const land = rasterizationWithRetreat(polygons, minX, maxX, minY, maxY, CELL_SIZE, 1); 
 
 	document.getElementById("landcell").innerHTML = "Land Cell: " + land.length;
 
@@ -378,6 +410,10 @@ async function load(){
 
 	let frontier = land.filter(isCoast);
 
+	const beach = [];
+	const beachSet = new Set();
+ 
+	
 	for(let depth=0;
 			depth<COAST_WIDTH;
 			depth++)
