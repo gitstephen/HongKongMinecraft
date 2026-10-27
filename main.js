@@ -31,7 +31,7 @@ const MATERIALS = {
     OCEAN_OPACITY: 0.85
 };
 
-const GEOJSON_URL = "/hk_coast.json";
+const GEOJSON_URL = "./hk_coast.json";
 
 
 /**************************************************
@@ -124,72 +124,23 @@ function lonLatToWorld(lon, lat){
  * Point In Polygon (Rasterization)
  **************************************************/
 
-function pointInPolygon(x,y,polygon){
-
-    let inside=false;
-
-    for(
-        let i=0,j=polygon.length-1;
-        i<polygon.length;
-        j=i++
-    ){
-
-        const xi=polygon[i][0];
-        const yi=polygon[i][1];
-
-        const xj=polygon[j][0];
-        const yj=polygon[j][1];
-
-        const intersect=
-
-            ((yi>y)!=(yj>y))
-
-            &&
-
-            (
-                x <
-                (xj-xi)*(y-yi)/(yj-yi)
-                + xi
-            );
-
-        if(intersect)
-            inside=!inside;
+function pointInPolygon(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1];
+        const xj = poly[j][0], yj = poly[j][1];
+        // 點在邊上
+        if ((yi === y && yj === y && x >= Math.min(xi,xj) && x <= Math.max(xi,xj)) ||
+            ((x - xi) * (yj - yi) === (y - yi) * (xj - xi) && 
+             x >= Math.min(xi,xj) && x <= Math.max(xi,xj) && 
+             y >= Math.min(yi,yj) && y <= Math.max(yi,yj))) {
+            return true;
+        }
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
     }
-
     return inside;
 }
-
-function sampleCell(x, y, polygon)
-{
-    const s = CELL_SIZE;
-
-    let count = 0;
-
-    const points = [
-
-        [x + s*0.25, y + s*0.25],
-        [x + s*0.75, y + s*0.25],
-
-        [x + s*0.25, y + s*0.75],
-        [x + s*0.75, y + s*0.75]
-
-    ];
-
-    for(const p of points)
-    {
-        if(
-            pointInPolygon(
-                p[0],
-                p[1],
-                polygon
-            )
-        ){
-            count++;
-        }
-    }
-
-    return count;
-}  
  
 function rasterizationWithRetreat(polygons, minX, maxX, minY, maxY, cellSize, retreat = 1) 
 {
