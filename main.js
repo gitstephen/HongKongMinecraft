@@ -46,6 +46,19 @@ const WORLD_CENTER = {
 
 const R = 6378137;
 
+const DIRECTIONS8 = [
+
+	[-1,-1],
+	[ 0,-1],
+	[ 1,-1],
+	[-1, 0],
+	[ 1, 0],
+	[-1, 1],
+	[ 0, 1],
+	[ 1, 1]
+
+];
+
 const lonLatToWorld = (lon, lat) => {
     const x = R * THREE.MathUtils.degToRad(lon);
     const y = R * Math.log(Math.tan(Math.PI/4 + THREE.MathUtils.degToRad(lat)/2)); // 用正Y
@@ -53,6 +66,17 @@ const lonLatToWorld = (lon, lat) => {
 	return {x, y};
 } 
 	
+function lonLatToGrid(lon, lat){
+    const p = lonLatToWorld(lon, lat)
+    return {
+        gridX: Math.floor((p.x - origin.x) / CELL_SIZE),
+        gridZ: Math.floor((p.y - origin.y) / CELL_SIZE),
+        worldX: (p.x - origin.x) / CELL_SIZE,
+        worldZ: (p.y - origin.y) / CELL_SIZE
+    }
+}
+
+
 /**************************************************
  * Scene
  **************************************************/
@@ -182,7 +206,7 @@ const makeAlphaMaterial = (map, a) => new THREE.MeshStandardMaterial({
 		roughness: 0.8, 
 		metalness: 0, 
 		transparent: true,
-		opacity: 0.5
+		opacity: a
 	});
 
 const beachMaterials = [
@@ -235,22 +259,24 @@ const waterTopText = loadTexture(
 	
 const waterMaterials = [
 	//+X 右面 right
-	makeAlphaMaterial(waterTopText, 0.75),
+	makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
 	//-X 左面 left
-	makeAlphaMaterial(waterTopText, 0.75),
+	makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
 	//+Y 上面 top
-	makeAlphaMaterial(waterTopText, 1),
+	makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
 	// -Y 下面 bottom
-	makeAlphaMaterial(waterTopText, 0.75),
+	makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
 	//+Z 前面 front
-	makeAlphaMaterial(waterTopText, 0.75),
+	makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
 	//-Z 後面 back
-	makeAlphaMaterial(waterTopText, 0.75)   
+	makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY)   
 ];	
 	
 /**************************************************
  * Load GeoJSON
  **************************************************/
+
+const landCells = [];
 	
 // 你陸地格子對應香港的真實範圍，你改成你自己地圖的範圍就行
 const HK_BOUNDS = {
@@ -259,79 +285,10 @@ const HK_BOUNDS = {
   minLat: 22.15,
   maxLat: 22.55
 }	 
-
-function setPosition(mesh, blocks, height) {
-	const matrix = new THREE.Matrix4();
-
-    blocks.forEach((cell,i)=>{
-        matrix.makeTranslation(
-			cell.x,
-            CELL_SIZE*height/2,
-            cell.y
-        );
-
-        mesh.setMatrixAt(i,matrix);
-    }); 
-
-} 
-
-function createInstancedLayer(cells, color, height) {
-
-    const geometry = new THREE.BoxGeometry(
-        CELL_SIZE,
-        CELL_SIZE*height,
-        CELL_SIZE
-    );
-
-    const material = new THREE.MeshLambertMaterial({
-        color
-    });
-
-    const mesh = new THREE.InstancedMesh(
-        geometry,
-        material,
-        cells.length
-    );
  
-    setPosition(mesh, cells, height);
-	
-    scene.add(mesh);
-}
-
-function createTextureLayer(cells, textures, height) {
-
-    const geometry = new THREE.BoxGeometry(
-        CELL_SIZE,
-        CELL_SIZE*height,
-        CELL_SIZE
-    ); 
-
-    const mesh = new THREE.InstancedMesh(
-        geometry,
-        textures,
-        cells.length
-    ); 
-	
-	setPosition(mesh, cells, height);
-	    
-    scene.add(mesh);
-}
-
 function getBorderCells(set){
 	const border = new Set();
-	const DIRECTIONS8 = [
-
-		[-1,-1],
-		[ 0,-1],
-		[ 1,-1],
-		[-1, 0],
-		[ 1, 0],
-		[-1, 1],
-		[ 0, 1],
-		[ 1, 1]
-
-	];
-	
+	 
 	for(const k of set){
 		const [x,y] = k.split(',').map(Number);
 		for(const [dx,dy] of DIRECTIONS8){
@@ -344,10 +301,7 @@ function getBorderCells(set){
 	return border;
 }
  
-
-async function loadJson(gs) {
- 
-	const landCells = [];
+async function loadJson(gs) { 
 
 	// 1. 陸地 - 每格1個Box
 	const hkGeo = await fetch(gs).then(r=>r.json()); 
@@ -383,21 +337,46 @@ async function loadJson(gs) {
 	
 	// ===== 5. 生成整個香港陸地，綠色 Box ===== 	
 
-	for(let r=0; r<ROWS; r++){
-		for(let c=0;c<COLS;c++){
-			const lon = minLon + (c+0.5)/COLS*(maxLon-minLon);
+	const landMap = new Set()
+
+	// 1. 預先計算每個 polygon 的 bbox，轉做格子範圍，唔使掃全地圖
+	const polyBounds = allPolys.map(poly=>{
+		let pMinLon=180, pMaxLon=-180, pMinLat=90, pMaxLat=-90;
+		for(const [lon,lat] of poly){
+			pMinLon=Math.min(pMinLon,lon); 
+			pMaxLon=Math.max(pMaxLon,lon);
+			pMinLat=Math.min(pMinLat,lat); 
+			pMaxLat=Math.max(pMaxLat,lat);
+		}
+		// bbox 轉格子範圍，夾到 ROWS/COLS 入面
+		const c0 = Math.max(0, Math.floor((pMinLon - minLon)/(maxLon-minLon)*COLS));
+		const c1 = Math.min(COLS-1, Math.ceil((pMaxLon - minLon)/(maxLon-minLon)*COLS));
+		const r0 = Math.max(0, Math.floor((pMinLat - minLat)/(maxLat-minLat)*ROWS));
+		const r1 = Math.min(ROWS-1, Math.ceil((pMaxLat - minLat)/(maxLat-minLat)*ROWS));
+		
+		return {poly, c0, c1, r0, r1};
+	})
+
+	// 2. 反向遍歷：對每個 poly，只掃佢 bbox 入面嘅格子
+	for(const {poly, c0, c1, r0, r1} of polyBounds){
+		for(let r=r0; r<=r1; r++){
 			const lat = minLat + (r+0.5)/ROWS*(maxLat-minLat);
-			for(const poly of allPolys){
-				if(pointInPolygon(lon, lat, poly)){
-					landCells.push({x:c, y:r});
-					break;
+			for(let c=c0; c<=c1; c++){
+				const key = `${c},${r}`;	
+				
+				if(!landMap.has(key)) { 				
+					const lon = minLon + (c+0.5)/COLS*(maxLon-minLon);
+					if(pointInPolygon(lon, lat, poly)){
+						landCells.push({x:c, y:r});
+						landMap.add(key);
+					}
 				}
 			}
 		}
 	}
 	
-  	const originalLandSet = new Set(landCells.map(c=>`${c.x},${c.y}`))
-	  
+	
+  	const originalLandSet = new Set(landCells.map(c=>`${c.x},${c.y}`))	  
 
 	/*********************************
 	* Land
@@ -424,7 +403,7 @@ async function loadJson(gs) {
 	}
 	
 	landMesh.instanceMatrix.needsUpdate = true;
-	scene.add(landMesh)
+	scene.add(landMesh);
  	
 	/*********************************
 	* Coast
@@ -452,18 +431,7 @@ async function loadJson(gs) {
 	// ===== 6. 外圍加一格淺水區 (沙灘外面) =====
 	function getShallowRing(){
 		const shallow = new Set()
-		const DIRECTIONS8 = [
-
-			[-1,-1],
-			[ 0,-1],
-			[ 1,-1],
-			[-1, 0],
-			[ 1, 0],
-			[-1, 1],
-			[ 0, 1],
-			[ 1, 1]
-
-		];
+		
 		const combinedSet = new Set([...innerLandSet, ...beachSet]) // 陸地+沙灘外面先係水
 		for(const k of combinedSet){
 			const [x,z] = k.split(',').map(Number)
@@ -492,11 +460,9 @@ async function loadJson(gs) {
 	shallowMesh.instanceMatrix.needsUpdate = true; 
 	scene.add(shallowMesh);
 }
- 
 
 loadJson(GEOJSON_URL);
-
-
+ 
 function animate(){
 
     requestAnimationFrame(
