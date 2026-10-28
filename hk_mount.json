@@ -1,0 +1,152 @@
+{
+  "type": "FeatureCollection",
+  "name": "Hong_Kong_Highest_Peaks",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name_zh": "大帽山",
+        "name_en": "Tai Mo Shan",
+        "elevation_m": 957,
+        "region": "荃灣區、元朗區、大埔區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [114.125, 22.411]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name_zh": "鳳凰山",
+        "name_en": "Lantau Peak",
+        "elevation_m": 934,
+        "region": "離島區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [113.920, 22.249]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name_zh": "大東山",
+        "name_en": "Sunset Peak",
+        "elevation_m": 869,
+        "region": "離島區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [113.953, 22.257]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name_zh": "四方山",
+        "name_en": "Sze Fong Shan",
+        "elevation_m": 785,
+        "region": "大埔區、荃灣區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [114.143, 22.415]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name_zh": "禾秧山",
+        "name_en": "Wo Yang Shan",
+        "elevation_m": 771,
+        "region": "荃灣區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [114.133, 22.404]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name_zh": "蓮花山",
+        "name_en": "Lin Fa Shan",
+        "elevation_m": 766,
+        "region": "離島區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [113.982, 22.264]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name_zh": "妙高台",
+        "name_en": "Miu Ko Toi",
+        "elevation_m": 765,
+        "region": "荃灣區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [114.120, 22.403]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name_zh": "彌勒山",
+        "name_en": "Nei Lak Shan",
+        "elevation_m": 751,
+        "region": "離島區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [113.906, 22.260]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name_zh": "二東山",
+        "name_en": "Yi Tung Shan",
+        "elevation_m": 749,
+        "region": "離島區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [113.966, 22.259]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name_zh": "馬鞍山",
+        "name_en": "Ma On Shan",
+        "elevation_m": 702,
+        "region": "沙田區、大埔區"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [114.252, 22.409]
+      }
+    }
+  ]
+}
