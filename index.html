@@ -10,7 +10,7 @@
 <meta property="og:image" content="https://edm.power-point.net/hongkong-minecraft/images/hk-coast.jpg" />
 <meta property="og:type" content="website" />  
 <meta property="og:logo" content="" />
-<title>Hong Kong Minecraft Map</title>
+<title>Beautyful Hong Kong</title>
 <script type="importmap">
 {
 	"imports": {
@@ -25,7 +25,7 @@ body{
     overflow:hidden;
 }
 
-#info{
+.info {
     position:absolute;
     left:10px;
     top:10px;
@@ -36,22 +36,32 @@ body{
     z-index:10;
 }
 
-.labelTxt {
-	
+.author {
+	position:absolute;
+    left:10px;
+    bottom:10px;
+    background:rgba(0,0,0,.7);
+    color:white;
+	font-size:14px;
+    padding:5px;
+    font-family:sans-serif;
+    z-index:10;
 }
 </style>
 </head>
 <body>
 
-<div id="info">
-	<div>Minecraft - My Hong Kong</div>
+<div class="info">
+	<div>Minecraft Beautyful Hong Kong </div>
 	<div>Size 1:300</div>
 	<div>Mouse Wheel = Zoom</div>
-	<div>Right Mouse = Rotate</div>
-	<div id="landcell"></div>
+	<div>Right Mouse = Rotate</div> 
+</div>
+<div class="author">
+By Stephen Yeung with Meta AI
 </div>
  
-    <script type="module" src="main.js?v=5.32"> </script>
-
+ <script type="module" src="main.js?v=5.32"> </script>
+<script src="app.js"> </script>
 </body>
 </html>
