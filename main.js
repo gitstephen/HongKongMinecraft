@@ -10,10 +10,10 @@ const GEOJSON_URL = "./hk_coast.json";
 const MOUNT_URL = "./hk_mount.json";
 
 const CELL_M = 300; 
-const OCEAN_Size = 1000; // 無限大，用10000格=3000km，遠超可視範圍
+const OCEAN_SIZE = 2000; // 無限大，用10000格=3000km，遠超可視範圍
 
 const LAND_HEIGHT = 3;
-const COAST_HEIGHT = 2; 
+const COAST_HEIGHT = 1.5; 
 const WATER_HEIGHT = 1;
 
 const R = 6378137;
@@ -120,6 +120,8 @@ ctx.fillRect(0, 0, 2, 512);
 
 const scene = new THREE.Scene(); 
 scene.background = new THREE.CanvasTexture(canvas);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.0012); 
+
 
 const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 2000);
 // 修正視角：整個香港 210x154格，剛好置中
@@ -130,9 +132,9 @@ const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;//
+renderer.setClearColor(scene.fog.color); 
 
-document.body.appendChild(renderer.domElement)
-
+document.body.appendChild(renderer.domElement) 
 
 //1. Add Lighting
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -162,13 +164,14 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.target.set(0, 0, 0);
-controls.minDistance = 30;
-controls.maxDistance = 400;
+controls.minDistance = 50;
+controls.maxDistance = 1000;
 controls.maxPolarAngle = Math.PI / 2.05;
 controls.minPolarAngle = 0;
 controls.enableZoom = true;
 controls.zoomSpeed = 1;
 controls.update(); 
+
 // 自動適應大小，保證開始就睇到全島
 function fitCameraToGrid(cols, rows){
     const maxDim = Math.max(cols, rows);
@@ -228,51 +231,74 @@ const dummy = new THREE.Object3D();
 // ===== 5  海洋 - 香港面3倍大，喺陸地外面 =====
 
 // 生成 Minecraft 風格海水貼圖 
-function createMinecraftWaterTexture(tileSize ) {
+
+function createWaterTexture(tileSize, baseColor) {
 	const size = 16;
 	const canvas = document.createElement('canvas');
 	canvas.width = canvas.height = size;
 	const ctx = canvas.getContext('2d');
-	// Minecraft 水原色 - 如果你有 COLORS 就用返
- 
-	ctx.fillStyle = COLORS.OCEAN;
+	ctx.fillStyle = baseColor;
 	ctx.fillRect(0,0,size,size);
-	// 加入像素噪點
 	const colors = ['#081F4D', '#123A75', '#0D2E5F', '#184B8C'];
 	for(let i=0; i<60; i++){
 		ctx.fillStyle = colors[Math.floor(Math.random()*colors.length)];
-		ctx.fillRect(
-			Math.floor(Math.random()*size), 
-			Math.floor(Math.random()*size), 
-			1, 1
-		);
+		ctx.fillRect(Math.floor(Math.random()*size), Math.floor(Math.random()*size), 1, 1);
 	}
 	const tex = new THREE.CanvasTexture(canvas);
-	tex.magFilter = THREE.NearestFilter;
-	tex.minFilter = THREE.NearestFilter;
+	tex.magFilter = tex.minFilter = THREE.NearestFilter;
 	tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-	// 重點：用 tileSize 決定 Minecraft 格有幾大，唔好用 oceanSize/16
-	tex.repeat.set(OCEAN_Size / tileSize, OCEAN_Size / tileSize);
+	tex.repeat.set(OCEAN_SIZE / tileSize, OCEAN_SIZE / tileSize);
 	return tex;
-} 
- 
-const oceanMat = new THREE.MeshStandardMaterial({
-	map: createMinecraftWaterTexture(32), // 32 = 一格水有半米咁大，最有Minecraft feel
-	color: 0xffffff, // 有 map 就要用白色先唔會溝色
+}
+// --- 1. 下層：深海底層 (唔透明，壓底) ---
+const deepMat = new THREE.MeshStandardMaterial({
+	map: createWaterTexture(32, COLORS.OCEAN), // 深藍
+	color: 0xffffff,
+	roughness: 1.0,
+	metalness: 0,
+	fog: true,
+	transparent: false // 底層完全唔透，當作海底色
+}); 
+const deepMesh = new THREE.Mesh(
+	new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE),
+	deepMat
+);
+deepMesh.rotation.x = -Math.PI / 2;
+deepMesh.position.set(0, -1.5, 0); // 比上層低 0.7格
+deepMesh.receiveShadow = false;
+scene.add(deepMesh);
+
+// --- 2. 上層：淺水表層 (半透明，有波紋) ---
+const shallowMat = new THREE.MeshStandardMaterial({
+	map: createWaterTexture(32, '#2A7FBE'), // 淺藍
+	color: 0xffffff,
 	roughness: 0.8,
 	metalness: 0.1,
 	transparent: true,
-	opacity: 0.95
+	fog: true,
+	opacity: 0.3, // 關鍵：半透明先見到下面深色
+	depthWrite: false // 關鍵：兩層透明先唔會打交閃爍
 });
+const surfaceMesh = new THREE.Mesh(
+	new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE),
+	shallowMat
+);
+surfaceMesh.rotation.x = -Math.PI / 2;
+surfaceMesh.position.set(0, -0.75, 0); // 高過深海
+surfaceMesh.receiveShadow = false;
 
-const oceanGeo = new THREE.PlaneGeometry(OCEAN_Size, OCEAN_Size); 
+// 令上層一定畫喺下層上面
+surfaceMesh.renderOrder = 1;
+deepMesh.renderOrder = 0;
+scene.add(surfaceMesh);
+// 想要個海有少少郁動，做深淺閃爍
 
-const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
-oceanMesh.rotation.x = -Math.PI / 2; // Plane要轉90度平放
-oceanMesh.position.set(0, -0.5, 0); // 比淺水再低
-oceanMesh.receiveShadow = false;
-
-scene.add(oceanMesh);
+/* function animateOcean() {
+	const time = Date.now() * 0.0003;
+	// 上層慢慢移，做水流
+	shallowMat.map.offset.x = time * 0.5;
+	shallowMat.map.offset.y = time * 0.2;
+} */
 
 ///////////////////////////////////////////////////////////////////////////////////
  
@@ -472,16 +498,16 @@ const waterMaterials = [
 	//-Z 後面 back
 	makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY)   
 ];	
-const shallowMesh = new THREE.InstancedMesh(shallowGeo, waterMaterials, shallowSet.size);
+const beachwMesh = new THREE.InstancedMesh(shallowGeo, waterMaterials, shallowSet.size);
 
 let si=0;
 for(const k of shallowSet){
     const [x,z] = k.split(',').map(Number);
     dummy.position.set(x-centerX, -0.85, -(z-centerZ));
     dummy.updateMatrix();
-    shallowMesh.setMatrixAt(si++, dummy.matrix);
+    beachwMesh.setMatrixAt(si++, dummy.matrix);
 }
-scene.add(shallowMesh);
+scene.add(beachwMesh);
 
 // ===== 7. 高山 - 用原本 mount.json，比例喺代碼計 =====  
 const stoneTopText = loadTexture(
@@ -576,9 +602,64 @@ for(const f of mountGeo.features){
 	scene.add(label)
 }
 
-// ===== 8. 渲染 =====
+// 8. ===== 靜態方塊雲 - 擺幾個就得 =====
+function createStaticCloud(x, z, scale = 1) {
+	const group = new THREE.Group();
+
+	const mat = new THREE.MeshStandardMaterial({
+		color: 0xffffff,
+		flatShading: true,
+		roughness: 1,
+		metalness: 0,
+		fog: true // 等遠嘅雲有霧化，唔會太實
+	});
+
+	const boxGeo = new THREE.BoxGeometry(12, 2, 12);
+
+	// 手砌一個Minecraft雲形，唔用random，咁先靚
+	const positions = [
+		[0,0,0], [12,0,0], [-12,0,0], [0,0,12], [0,0,-12],
+		[12,0,12], [-12,0,12], [12,0,-12], [-12,0,-12],
+		[0,2,0], [2,2,2] // 頂部加兩嚿
+	];
+
+	positions.forEach(p => {
+		const mesh = new THREE.Mesh(boxGeo, mat);
+		mesh.position.set(p[0], p[1], p[2]);
+		mesh.castShadow = false;
+		mesh.receiveShadow = false;
+		group.add(mesh);
+	});
+
+	group.position.set(x, 20, z); // Y=120 固定高度
+	group.scale.set(scale, scale, scale);
+	return group;
+}
+
+// 擺5嚿喺你個世界唔同方位
+const cloudGroup = new THREE.Group();
+
+cloudGroup.add(createStaticCloud(250, 60, 1.2));
+cloudGroup.add(createStaticCloud(-250, -150, 1));
+cloudGroup.add(createStaticCloud(0, -120, 1.5)); // 正前面大大嚿
+cloudGroup.add(createStaticCloud(-200, 170, 0.9));
+cloudGroup.add(createStaticCloud(150, -80, 1));
+
+scene.add(cloudGroup);
+
+function updateInfiniteOcean() {
+	// 等塊海嘅中心永遠喺你腳下，但Y唔跟，唔係你飛起塊海都飛起
+	surfaceMesh.position.x = camera.position.x;
+	surfaceMesh.position.z = camera.position.z;
+	deepMesh.position.x = camera.position.x;
+	deepMesh.position.z = camera.position.z;
+}
+
+// ===== 9. 渲染 =====
 function animate(){
     requestAnimationFrame(animate);
+	//updateInfiniteOcean();
+	
     controls.update();
     renderer.render(scene, camera);
 }
