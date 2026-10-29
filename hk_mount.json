@@ -1,152 +1,401 @@
 {
-  "type": "FeatureCollection",
-  "name": "Hong_Kong_Highest_Peaks",
-  "crs": {
-    "type": "name",
-    "properties": {
-      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
-    }
-  },
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 1,
-        "name_zh": "大帽山",
-        "name_en": "Tai Mo Shan",
-        "elevation_m": 957,
-        "region": "荃灣區、元朗區、大埔區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [114.125, 22.411]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 2,
-        "name_zh": "鳳凰山",
-        "name_en": "Lantau Peak",
-        "elevation_m": 934,
-        "region": "離島區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [113.920, 22.249]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 3,
-        "name_zh": "大東山",
-        "name_en": "Sunset Peak",
-        "elevation_m": 869,
-        "region": "離島區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [113.953, 22.257]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 4,
-        "name_zh": "四方山",
-        "name_en": "Sze Fong Shan",
-        "elevation_m": 785,
-        "region": "大埔區、荃灣區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [114.143, 22.415]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 5,
-        "name_zh": "禾秧山",
-        "name_en": "Wo Yang Shan",
-        "elevation_m": 771,
-        "region": "荃灣區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [114.133, 22.404]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 6,
-        "name_zh": "蓮花山",
-        "name_en": "Lin Fa Shan",
-        "elevation_m": 766,
-        "region": "離島區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [113.982, 22.264]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 7,
-        "name_zh": "妙高台",
-        "name_en": "Miu Ko Toi",
-        "elevation_m": 765,
-        "region": "荃灣區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [114.120, 22.403]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 8,
-        "name_zh": "彌勒山",
-        "name_en": "Nei Lak Shan",
-        "elevation_m": 751,
-        "region": "離島區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [113.906, 22.260]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 9,
-        "name_zh": "二東山",
-        "name_en": "Yi Tung Shan",
-        "elevation_m": 749,
-        "region": "離島區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [113.966, 22.259]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "id": 10,
-        "name_zh": "馬鞍山",
-        "name_en": "Ma On Shan",
-        "elevation_m": 702,
-        "region": "沙田區、大埔區"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [114.252, 22.409]
-      }
-    }
-  ]
+    "type": "FeatureCollection",
+    "name": "HongKong_Top20_Peaks",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 1,
+                "name": "Tai Mo Shan",
+                "name_zh": "大帽山",
+                "elevation": 957
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1231,
+                    22.4118
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 2,
+                "name": "Lantau Peak",
+                "name_zh": "鳳凰山",
+                "elevation": 934
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9347,
+                    22.2499
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 3,
+                "name": "Sunset Peak",
+                "name_zh": "大東山",
+                "elevation": 869
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9805,
+                    22.2565
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 4,
+                "name": "Sze Fong Shan",
+                "name_zh": "四方山",
+                "elevation": 785
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.135,
+                    22.4188
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 5,
+                "name": "Miu Ko Toi",
+                "name_zh": "妙高台",
+                "elevation": 779
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.132,
+                    22.4145
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 6,
+                "name": "Wo Yeung Shan",
+                "name_zh": "禾秧山",
+                "elevation": 767
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1392,
+                    22.4042
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 7,
+                "name": "Lin Fa Shan",
+                "name_zh": "蓮花山",
+                "elevation": 766
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9845,
+                    22.2678
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 8,
+                "name": "Nei Lak Shan",
+                "name_zh": "彌勒山",
+                "elevation": 754
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9127,
+                    22.2554
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 9,
+                "name": "Yi Tung Shan",
+                "name_zh": "二東山",
+                "elevation": 749
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9931,
+                    22.2718
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 10,
+                "name": "Ma On Shan",
+                "name_zh": "馬鞍山",
+                "elevation": 702
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.2502,
+                    22.4067
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 11,
+                "name": "Yin Ngam Teng",
+                "name_zh": "吟岩頂",
+                "elevation": 679
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1453,
+                    22.4255
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 12,
+                "name": "The Hunch Backs",
+                "name_zh": "牛押山",
+                "elevation": 677
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.2455,
+                    22.413
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 13,
+                "name": "Wo Tong Kong",
+                "name_zh": "禾塘崗",
+                "elevation": 656
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1225,
+                    22.4018
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 14,
+                "name": "Grassy Hill",
+                "name_zh": "草山",
+                "elevation": 647
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1495,
+                    22.397
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 15,
+                "name": "Wong Leng",
+                "name_zh": "黃嶺",
+                "elevation": 639
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.2628,
+                    22.4895
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 16,
+                "name": "Buffalo Hill",
+                "name_zh": "水牛山",
+                "elevation": 606
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.2434,
+                    22.3806
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 17,
+                "name": "West Buffalo Hill",
+                "name_zh": "黃牛山",
+                "elevation": 604
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.239,
+                    22.379
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 18,
+                "name": "Kowloon Peak",
+                "name_zh": "飛鵝山",
+                "elevation": 603
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.226,
+                    22.3578
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 19,
+                "name": "Shun Yeung Fung",
+                "name_zh": "純陽峰",
+                "elevation": 591
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.282,
+                    22.4858
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "rank": 20,
+                "name": "Kai Kung Leng",
+                "name_zh": "雞公嶺",
+                "elevation": 585
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.0065,
+                    22.458
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Victoria Peak",
+                "chinese": "太平山",
+                "elevation": 552
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.146,
+                    22.2749
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "High West",
+                "chinese": "西高山",
+                "elevation": 494
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1362,
+                    22.2725
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Mount Parker",
+                "chinese": "柏架山",
+                "elevation": 532
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.2219,
+                    22.2684
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Mount Butler",
+                "chinese": "畢拿山",
+                "elevation": 436
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.2106,
+                    22.2681
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Jardine's Lookout",
+                "chinese": "渣甸山",
+                "elevation": 433
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1981,
+                    22.2663
+                ]
+            }
+        }
+    ]
 }
