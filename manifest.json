@@ -1,7 +1,7 @@
 {
 	"name": "HK 3D Terrain",
 	"description": "Hong Kong 3D Minecraft Terrain Generator",
-	"version": "0.24",
+	"version": "0.1",
 	"manifest_version": 3,
 	"action": {
 		"default_popup": "popup.html",
