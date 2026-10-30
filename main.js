@@ -1,5 +1,5 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'OrbitControls';
+import * as THREE from './scripts/three.module.js';
+import { OrbitControls } from './scripts/OrbitControls.js';
 
 // ===== 1. 你原本的 Mercator 公式，完全保留 =====
 /**************************************************
@@ -99,8 +99,9 @@ const makeAlphaMaterial = (map, a) => new THREE.MeshStandardMaterial({
 	 
 
 // ===== 3. Three.js 場景 =====
-
-
+const scene = new THREE.Scene(); 
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 2000);
+ 
 async function load() {
 	const canvas = document.createElement('canvas');
 	canvas.width = 2;
@@ -117,12 +118,12 @@ async function load() {
 	ctx.fillStyle = gradient;
 	ctx.fillRect(0, 0, 2, 512);
 
-	const scene = new THREE.Scene(); 
+	
 	scene.background = new THREE.CanvasTexture(canvas);
 	scene.fog = new THREE.FogExp2(0x87CEEB, 0.0012); 
 
 
-	const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 2000);
+
 	// 修正視角：整個香港 210x154格，剛好置中
 	// 相機拉高拉遠，俯視 45度，最適合睇全島
 	camera.position.set(0, 180, 180);
