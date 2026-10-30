@@ -8,14 +8,17 @@ import { OrbitControls } from './scripts/OrbitControls.js';
 const GEOJSON_URL = "/hk_coast.json";
 const MOUNT_URL = "/hk_mount.json";
 
-const CELL_M = 300; 
+const CELL_M = 250; 
 const OCEAN_SIZE = 2000; // 無限大，用10000格=3000km，遠超可視範圍
 
-const LAND_HEIGHT = 3;
+const LAND_HEIGHT = 2;
 const COAST_HEIGHT = 1.5; 
 const WATER_HEIGHT = 1;
 
-const R = 6378137;
+//For standard Web Mercator
+const R = 6378137; 
+const CENTER_LON = 114.1398;
+const CENTER_LAT = 22.3837;
 
 const DIRECTIONS8 = [
 	[-1,-1],
@@ -40,16 +43,16 @@ const MATERIALS = {
     OCEAN_OPACITY: 0.85
 };
 
-function lonLatToWorld(lon, lat){
-    const x = R * THREE.MathUtils.degToRad(lon);
-    const y = R * Math.log(
-        Math.tan(
-            Math.PI/4 +
-            THREE.MathUtils.degToRad(lat)/2
-        )
-    );
+function lonLatToWorld(lon, lat){    
+	 
+	const lonRad = THREE.MathUtils.degToRad(lon);
+    const latRad = THREE.MathUtils.degToRad(lat);
+	
+    const x = R * lonRad;
+    const y = R * Math.log(Math.tan(Math.PI/4 + latRad/2)); 
+	
     return {x, y};
-}
+} 
 
 // ===== 2. 點是否在多邊形內 (用於將geojson轉格子) =====
 function pointInPolygon(lon, lat, poly){
@@ -62,6 +65,7 @@ function pointInPolygon(lon, lat, poly){
     }
     return inside;
 }
+
 
 /*********************************
 * Add texture
@@ -95,13 +99,13 @@ const makeAlphaMaterial = (map, a) => new THREE.MeshStandardMaterial({
 		metalness: 0, 
 		transparent: true,
 		opacity: a
-	});
-	 
+	});	 
 
 // ===== 3. Three.js 場景 =====
 const scene = new THREE.Scene(); 
 const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 2000);
- 
+const renderer = new THREE.WebGLRenderer({antialias:true});
+	
 async function load() {
 	const canvas = document.createElement('canvas');
 	canvas.width = 2;
@@ -117,18 +121,15 @@ async function load() {
 
 	ctx.fillStyle = gradient;
 	ctx.fillRect(0, 0, 2, 512);
-
 	
 	scene.background = new THREE.CanvasTexture(canvas);
 	scene.fog = new THREE.FogExp2(0x87CEEB, 0.0012); 
 
-
-
 	// 修正視角：整個香港 210x154格，剛好置中
 	// 相機拉高拉遠，俯視 45度，最適合睇全島
 	camera.position.set(0, 180, 180);
+	camera.lookAt(0, 0, 0);
 
-	const renderer = new THREE.WebGLRenderer({antialias:true});
 	renderer.setSize(innerWidth, innerHeight);
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFShadowMap;//
@@ -192,7 +193,8 @@ async function load() {
 
 	// 計出香港範圍，作為原點 (喺代碼計，唔寫死喺json)
 	let minLon=180, maxLon=-180, minLat=90, maxLat=-90;
-	const allPolys = [];
+	const allPolys = []; 
+
 
 	for(const f of hkGeo.features){
 		const polys = f.geometry.type==='Polygon' ? [f.geometry.coordinates[0]] : f.geometry.coordinates.map(p=>p[0]);
@@ -205,24 +207,25 @@ async function load() {
 				maxLat=Math.max(maxLat,lat);
 			}
 		}
-	}
-
-	const origin = lonLatToWorld(minLon, minLat);
+	} 
+ 
+	const origin = lonLatToWorld(minLon, minLat); 
 	const maxM = lonLatToWorld(maxLon, maxLat);
 	const widthM = maxM.x - origin.x;
 	const heightM = maxM.y - origin.y;
+	
 	const COLS = Math.ceil(widthM / CELL_M);
 	const ROWS = Math.ceil(heightM / CELL_M);
 
-	console.log(`香港 ${widthM/1000}km x ${heightM/1000}km = ${COLS}x${ROWS}格`)
-
+	console.log(`香港 ${COLS}x${ROWS} 格`)
+	 
 	function lonLatToGrid(lon, lat){
-		const p = lonLatToWorld(lon, lat);
+		const w = lonLatToWorld(lon, lat); 
 		return {
-			gridX: Math.floor((p.x - origin.x) / CELL_M),
-			gridZ: Math.floor((p.y - origin.y) / CELL_M),
-			worldX: (p.x - origin.x) / CELL_M,
-			worldZ: (p.y - origin.y) / CELL_M
+			gridX: Math.floor((w.x - origin.x) / CELL_M),
+			gridZ: Math.floor((w.y - origin.y) / CELL_M),
+			worldX: (w.x - origin.x) / CELL_M,
+			worldZ: (w.y - origin.y) / CELL_M // // Minecraft的Z是向南为正，墨卡托Y向北为正，所以要反一下
 		}
 	}
 
@@ -305,8 +308,7 @@ async function load() {
 	const oceanW = COLS;
 	const oceanH = ROWS;
 
-	fitCameraToGrid(COLS * 2, ROWS * 2) // 睇大啲，見到無限海 
-
+	fitCameraToGrid(COLS * 2, ROWS * 2) // 睇大啲，見到無限海  
 
 	// ===== 5.1 生成整個香港陸地，綠色 Box (優化版) =====
 	const landCells = [];
@@ -343,13 +345,11 @@ async function load() {
 				}
 			}
 		}
-	}
-	console.log(`陸地格子: ${landCells.length} (優化後，只檢查 bbox 內)`)
+	} 
 
 	// 如果想再快10倍，直接用預計算好嘅 300m 格子，唔使即時計：
 	// const pre = await fetch('./hk_300m_grid.json').then(r=>r.json())
-	// const landCells = pre.cells.map(c=>({x:c.grid_x, z:c.grid_z}))
-
+	// const landCells = pre.cells.map(c=>({x:c.grid_x, z:c.grid_z})) 
 
 	// landSet 用於之後計 coast 和沙灘
 	const originalLandSet = new Set(landCells.map(c=>`${c.x},${c.z}`));
@@ -374,7 +374,7 @@ async function load() {
 	const innerLandSet = new Set([...originalLandSet].filter(k=>!borderCells.has(k))); // 退縮後嘅陸地
 	const beachSet = borderCells; // 沙灘 = 原本最外圈
 
-	console.log(`原本 ${originalLandSet.size} -> 內陸 ${innerLandSet.size} + 沙灘 ${beachSet.size}`)
+	console.log(`總方格: ${landCells.length} = 內陸 ${innerLandSet.size} + 沙灘 ${beachSet.size}`)
 
 	// 內陸 - 綠色 Box
 	const landGeo = new THREE.BoxGeometry(1, LAND_HEIGHT, 1);
@@ -416,7 +416,7 @@ async function load() {
 	let li=0;
 	for(const k of innerLandSet){
 		const [x,z] = k.split(',').map(Number);
-		dummy.position.set(x - centerX, 0, -(z - centerZ));
+		dummy.position.set(x - centerX, 0, centerZ - z);
 		dummy.updateMatrix();
 		landMesh.setMatrixAt(li++, dummy.matrix);
 	}
@@ -453,7 +453,7 @@ async function load() {
 	let bi=0;
 	for(const k of beachSet){
 		const [x,z] = k.split(',').map(Number);
-		dummy.position.set(x - centerX, -0.5, -(z - centerZ)); // 比陸地矮少少
+		dummy.position.set(x - centerX, -0.5, centerZ - z); // 比陸地矮少少
 		dummy.updateMatrix();
 		beachMesh.setMatrixAt(bi++, dummy.matrix);
 	}
@@ -502,7 +502,7 @@ async function load() {
 	let si=0;
 	for(const k of shallowSet){
 		const [x,z] = k.split(',').map(Number);
-		dummy.position.set(x-centerX, -0.85, -(z-centerZ));
+		dummy.position.set(x-centerX, -0.85,  centerZ - z);
 		dummy.updateMatrix();
 		beachwMesh.setMatrixAt(si++, dummy.matrix);
 	}
@@ -531,75 +531,189 @@ async function load() {
 	const LAND_SURFACE_Y = LAND_HEIGHT / 2;  // 綠色陸地 Box 0.6高，頂部 0.3
 	const BEACH_SURFACE_Y = 1; // 沙灘 Box 0.35高，位置-0.12，頂部 0.055
 
-	function makeTextSprite(text, elevation){
+	function makeTextSprite(name, elevation){
 		const canvas = document.createElement('canvas');
 		const ctx = canvas.getContext('2d');
-		const fontSize = 56;
-		ctx.font = `bold ${fontSize}px 'Noto Sans HK', sans-serif`;
-		const label = `${text}  ${elevation}m`;
-		const metrics = ctx.measureText(label);
+		const fontSize = 48;
+		const lineGap = 14;
 		const paddingX = 32;
 		const paddingY = 16;
 		const radius = 18;
-		canvas.width = metrics.width + paddingX*2;
-		canvas.height = 80;
-		ctx.clearRect(0,0,canvas.width,canvas.height);
-		
-		// 黑色背景，有啲透明 + 圓角
+
+		const line1 = name;
+		const line2 = `${elevation}m`;
+
+		ctx.font = `bold ${fontSize}px 'Noto Sans HK', sans-serif`;
+		const m1 = ctx.measureText(line1);
+		const m2 = ctx.measureText(line2);
+		const maxWidth = Math.max(m1.width, m2.width);
+
+		canvas.width = maxWidth + paddingX * 2;
+		canvas.height = fontSize * 2 + lineGap + paddingY * 2;
+
+		// 重設樣式 (width 重置會清空 ctx)
+		ctx.font = `bold ${fontSize}px 'Noto Sans HK', sans-serif`;
+		ctx.textAlign = 'center'; // 關鍵：置中
+		ctx.textBaseline = 'middle';
+
+		// 背景
 		ctx.fillStyle = 'rgba(0,0,0,0.55)';
 		ctx.beginPath();
 		ctx.roundRect(0, 0, canvas.width, canvas.height, radius);
 		ctx.fill();
-		
-		// 美化文字
-		ctx.font = `bold ${fontSize}px 'Noto Sans HK', sans-serif`;
-		ctx.textBaseline = 'middle';
+
+		// 文字
 		ctx.fillStyle = '#FFFFFF';
 		ctx.shadowColor = 'rgba(0,0,0,0.5)';
-		ctx.shadowBlur = 0;
-		ctx.shadowOffsetX = 0;
 		ctx.shadowOffsetY = 1;
-		ctx.fillText(label, paddingX, canvas.height/2);
-		
+
+		const centerY = canvas.height / 2 - 10;
+		const centerX = canvas.width / 2; // 關鍵：用中心點
+		const line1Y = centerY - (fontSize + lineGap) / 2 + fontSize/2;
+		const line2Y = centerY + (fontSize + lineGap) / 2 - fontSize/2;
+
+		ctx.fillText(line1, centerX, line1Y );
+
+		ctx.font = `36px 'Noto Sans HK', sans-serif`;
+		ctx.fillText(line2, centerX, line2Y + 30);
+
 		const tex = new THREE.CanvasTexture(canvas);
-		tex.needsUpdate = true;
-		
 		const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
 		const sprite = new THREE.Sprite(mat);
 		sprite.scale.set(canvas.width/28, canvas.height/28, 1);
 		sprite.renderOrder = 999;
-	  
+
 		return sprite;
-	} 
-
-	for(const f of mountGeo.features){
-		const [lon, lat] = f.geometry.coordinates; // 原本經緯度保留
-		const { elevation, name } = f.properties; // 原本屬性保留
-		
-		const grid = lonLatToGrid(lon, lat);
-		const h = Math.round(elevation / CELL_M) * 1.5; // 比例喺代碼計：957m / 300 = 3.19格
-	  
-	 
-		console.log(`山: ${name}, 高度: ${elevation}`);
-		// 用 BoxGeometry 定位
-		// 判斷山腳係內陸定沙灘
-		const key = `${Math.floor(grid.gridX)},${Math.floor(grid.gridZ)}`;
-		const surfaceY = beachSet.has(key) ? BEACH_SURFACE_Y : LAND_SURFACE_Y;
-		// 底部貼實表面
-		const geo = new THREE.BoxGeometry(0.8, h, 0.8);
-		
-		const mesh = new THREE.Mesh(geo, mountMaterials);
-		mesh.position.set(grid.worldX - centerX , LAND_SURFACE_Y + h/2, -(grid.worldZ - centerZ));
-		mesh.name = name;
-		mesh.castShadow = true;
-
-		scene.add(mesh);
-		
-		// 山頂加 1.2格高處放名
-		const label = makeTextSprite(name, elevation);
-		label.position.set(grid.worldX - centerX, LAND_SURFACE_Y + h + 2, -(grid.worldZ - centerZ));
-		scene.add(label)
 	}
+
+	const terraGeo = new THREE.BoxGeometry(1, 1, 1);
+	const count = mountGeo.features.length;
+	const terraMesh = new THREE.InstancedMesh(terraGeo, mountMaterials, count);
+
+	mountGeo.features.forEach((f, i) => {
+		const [lon, lat] = f.geometry.coordinates;
+		const { elevation, name } = f.properties;
+		const grid = lonLatToGrid(lon, lat);
+		const mh = Math.round(elevation / CELL_M); 
+  
+		const boxH = mh; 
+		const worldX = grid.worldX - centerX - 1;
+		const worldY = LAND_SURFACE_Y + boxH / 2; // 底部貼地
+		const worldZ = centerZ - grid.worldZ + 2;
+
+		dummy.position.set(worldX, worldY, worldZ);
+		dummy.scale.set(1, boxH, 1);
+		dummy.updateMatrix();
+
+		terraMesh.setMatrixAt(i, dummy.matrix);
+
+		// 山頂加 3格高處放名
+		const label = makeTextSprite(name, elevation);
+		label.position.set(worldX, LAND_SURFACE_Y + mh + 3, worldZ); // offser
+		scene.add(label) 
+	});
+	
+	terraMesh.instanceMatrix.needsUpdate = true;
+	
+	scene.add(terraMesh);   
+ 
+ 
+ // === 1. 生成隨機貼圖 ===
+function makeNoiseTexture(color1, color2){
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color1;
+  ctx.fillRect(0,0,64,64);
+  for(let i=0;i<300;i++){
+    ctx.fillStyle = color2 + Math.floor(Math.random()*60).toString(16).padStart(2,'0');
+    ctx.fillRect(Math.random()*64, Math.random()*64, 2, 2);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter;
+  return tex;
+}
+
+const textures = [
+  makeNoiseTexture('#8a7a6a', '#5a4a3a'),
+  makeNoiseTexture('#9a9a8a', '#6a6a5a'),
+  makeNoiseTexture('#a0a0a0', '#707070'),
+  makeNoiseTexture('#c2b8a3', '#8a7a6a'), // 雪岩混合
+];
+const materials = textures.map(t => new THREE.MeshStandardMaterial({ map: t }));
+
+// === 2. 預算每個材質要多少方塊 ===
+const BLOCK_H = 2/3, BLOCK_W = 1, MAX_MH = 5;
+const mountainsData = mountGeo.features.map(f => {
+  let mh = Math.min(MAX_MH, Math.max(1, Math.round(f.properties.elevation / CELL_M)));
+  return { f, mh, baseW: mh*2 };
+});
+
+const counts = new Array(materials.length).fill(0);
+const assignments = []; // 存每個方塊要用哪個材質
+mountainsData.forEach(({mh, baseW}) => {
+  for(let y=0;y<mh;y++){
+    const size = Math.ceil(baseW * (1 - y/mh));
+    for(let x=0;x<size;x++){
+      for(let z=0;z<size;z++){
+        if(Math.random()<0.2 && (x===0||z===0||x===size-1||z===size-1)) continue; // 不規則邊緣
+        const matIdx = Math.floor(Math.random()*materials.length);
+        assignments.push(matIdx);
+        counts[matIdx]++;
+      }
+    }
+  }
+});
+
+// === 3. 為每種貼圖建一個 InstancedMesh ===
+const unitGeo = new THREE.BoxGeometry(1,1,1);
+const meshes = materials.map((mat, i) => {
+  const m = new THREE.InstancedMesh(unitGeo, mat, counts[i]);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+});
+const cursors = new Array(materials.length).fill(0);
+ 
+// === 4. 堆金字塔 ===
+let globalIdx = 0;
+mountainsData.forEach(({f, mh, baseW}) => {
+  const [lon, lat] = f.geometry.coordinates;
+  const grid = lonLatToGrid(lon, lat);
+  const cx = grid.worldX - centerX - 1;
+  const cz = centerZ - grid.worldZ + 2;
+
+  for(let y=0;y<mh;y++){
+    const size = Math.ceil(baseW * (1 - y/mh));
+    const yPos = LAND_SURFACE_Y + y*BLOCK_H + BLOCK_H/2;
+    const offset = size*BLOCK_W/2 - BLOCK_W/2;
+
+    for(let x=0;x<size;x++){
+      for(let z=0;z<size;z++){
+        const matIdx = assignments[globalIdx++];
+        if(matIdx === undefined) continue; // 被不規則跳過的
+        // 上面不規則判斷要和預算時一致，這裡簡化重算一次
+        if(Math.random()<0.2 && (x===0||z===0||x===size-1||z===size-1)) {
+           globalIdx--; continue; 
+        }
+
+        dummy.position.set(cx + x*BLOCK_W - offset, yPos, cz + z*BLOCK_W - offset);
+        dummy.scale.set(BLOCK_W, BLOCK_H, BLOCK_W);
+        dummy.rotation.set(0,0,0);
+        dummy.updateMatrix();
+        
+        const mesh = meshes[matIdx];
+        mesh.setMatrixAt(cursors[matIdx]++, dummy.matrix);
+      }
+    }
+  }
+});
+
+meshes.forEach(m => {
+  m.instanceMatrix.needsUpdate = true;
+  scene.add(m);
+});
+ 
+ 
 
 	// 8. ===== 靜態方塊雲 - 擺幾個就得 =====
 	function createStaticCloud(x, z, scale = 1) {
@@ -673,6 +787,3 @@ window.addEventListener('resize', ()=>{
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
 })
-
-
- 

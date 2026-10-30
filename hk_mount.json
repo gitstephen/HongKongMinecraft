@@ -53,38 +53,6 @@
         {
             "type": "Feature",
             "properties": {
-                "rank": 4,
-                "name": "Sze Fong Shan",
-                "name_zh": "四方山",
-                "elevation": 785
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    114.135,
-                    22.4188
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "rank": 5,
-                "name": "Miu Ko Toi",
-                "name_zh": "妙高台",
-                "elevation": 779
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    114.132,
-                    22.4145
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
                 "rank": 6,
                 "name": "Wo Yeung Shan",
                 "name_zh": "禾秧山",
@@ -95,22 +63,6 @@
                 "coordinates": [
                     114.1392,
                     22.4042
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "rank": 7,
-                "name": "Lin Fa Shan",
-                "name_zh": "蓮花山",
-                "elevation": 766
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    113.9845,
-                    22.2678
                 ]
             }
         },
@@ -197,48 +149,15 @@
         {
             "type": "Feature",
             "properties": {
-                "rank": 13,
-                "name": "Wo Tong Kong",
-                "name_zh": "禾塘崗",
-                "elevation": 656
+                "name_zh": "牛耳石山",
+                "name": "Ngau Yee Shek Shan",
+                "elevation": 425
             },
             "geometry": {
                 "type": "Point",
                 "coordinates": [
-                    114.1225,
-                    22.4018
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "rank": 14,
-                "name": "Grassy Hill",
-                "name_zh": "草山",
-                "elevation": 647
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    114.1495,
-                    22.397
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "rank": 15,
-                "name": "Wong Leng",
-                "name_zh": "黃嶺",
-                "elevation": 639
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    114.2628,
-                    22.4895
+                    114.323073,
+                    22.422543
                 ]
             }
         },
@@ -261,22 +180,6 @@
         {
             "type": "Feature",
             "properties": {
-                "rank": 17,
-                "name": "West Buffalo Hill",
-                "name_zh": "黃牛山",
-                "elevation": 604
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    114.239,
-                    22.379
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
                 "rank": 18,
                 "name": "Kowloon Peak",
                 "name_zh": "飛鵝山",
@@ -293,16 +196,45 @@
         {
             "type": "Feature",
             "properties": {
-                "rank": 19,
-                "name": "Shun Yeung Fung",
-                "name_zh": "純陽峰",
-                "elevation": 591
+                "name_zh": "大刀屻",
+                "name": "Tai To Yan",
+                "elevation": 566
             },
             "geometry": {
                 "type": "Point",
                 "coordinates": [
-                    114.282,
-                    22.4858
+                    114.118122,
+                    22.450256
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "屏風山",
+                "name": "Ping Fung Shan",
+                "elevation": 529
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.193685,
+                    22.493134
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "吊燈籠",
+                "name": "Tiu Tang Lung",
+                "elevation": 417
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.258974,
+                    22.511321
                 ]
             }
         },
@@ -317,11 +249,191 @@
             "geometry": {
                 "type": "Point",
                 "coordinates": [
-                    114.0065,
-                    22.458
+                    114.0824,
+                    22.4639
                 ]
             }
         },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "大棠楓香林",
+                "name": "Tai Tong Sweet Gum Woods",
+                "elevation": 200
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.0365,
+                    22.3983
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "屯門大峽谷",
+                "name": "Tuen Mun Great Canyon",
+                "elevation": 200
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9522,
+                    22.4146
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "圓頭山",
+                "name": "Yuen Tau Shan",
+                "elevation": 375
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9736,
+                    22.4331
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "青山",
+                "name": "Castle Peak",
+                "elevation": 583
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.9532,
+                    22.3884
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "靈會山",
+                "name": "Ling Wui Shan",
+                "elevation": 490
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.8677,
+                    22.2213
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Kam Shan",
+                "nameZh": "金山",
+                "elevation": 369
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1456,
+                    22.3623
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "獅子山",
+                "name": "Lion Rock",
+                "elevation": 495
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1869,
+                    22.3531
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "大上托",
+                "name": "Tai Sheung Tok",
+                "elevation": 399
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.238383,
+                    22.325206
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name_zh": "魔鬼山",
+                "name": "Devil's Peak",
+                "elevation": 222
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.2409,
+                    22.2967
+                ]
+            }
+        },
+		{
+		  "type": "Feature",
+		  "properties": {
+			"name_zh": "釣魚翁",
+			"name": "High Junk Peak",
+			"elevation": 344
+		  },
+		  "geometry": {
+			"type": "Point",
+			"coordinates": [  
+			  114.2834,
+			  22.2976
+			]
+		  }
+		},
+		{
+		  "type": "Feature",
+		  "properties": {
+			"name_zh": "大蚊山",
+			"name": "Tai Mun Shan",
+			"elevation": 370
+		  },
+		  "geometry": {
+			"type": "Point",
+			"coordinates": [
+			  114.364756,
+			  22.415614
+			]
+		  }
+		},
+		{
+		  "type": "Feature",
+		  "properties": {
+			"name_zh": "西灣山",
+			"name": "Sai Wan Shan",
+			"elevation": 314
+		  },
+		  "geometry": {
+			"type": "Point",
+			"coordinates": [
+			  114.3777,
+			  22.3872
+			]
+		  }
+		},
         {
             "type": "Feature",
             "properties": {
@@ -332,7 +444,7 @@
             "geometry": {
                 "type": "Point",
                 "coordinates": [
-                    114.146,
+                    114.1463,
                     22.2749
                 ]
             }
@@ -396,6 +508,51 @@
                     22.2663
                 ]
             }
-        }
+        },
+		{
+		  "type": "Feature",
+		  "properties": {
+			"name_zh": "孖崗山",
+			"name": "The Twins",
+			"elevation": 386
+		  },
+		  "geometry": {
+			"type": "Point",
+			"coordinates": [
+			  114.205344,
+			  22.230686
+			]
+		  }
+		},
+		{
+		  "type": "Feature",
+		  "properties": {
+			"name_zh": "石澳山",
+			"name": "Shek O Peak", 
+			"elevation": 284
+		  },
+		  "geometry": {
+			"type": "Point",
+			"coordinates": [  
+			  114.2418,
+			  22.2402
+			]
+		  }
+		},
+		{
+		  "type": "Feature",
+		  "properties": {
+			"name_zh": "紫羅蘭山",
+			"name": "Violet Hill",
+			"elevation": 436
+		  },
+		  "geometry": {
+			"type": "Point",
+			"coordinates": [
+			  114.198497,
+			  22.250061
+			]
+		  }
+		}
     ]
 }
