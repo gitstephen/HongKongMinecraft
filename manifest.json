@@ -1,6 +1,6 @@
 {
-	"name": "HongKong 3D Map",
-	"description": "A Minecraft style Hong Kong Map",
+	"name": "HK 3D Terrain",
+	"description": "Hong Kong 3D Minecraft Terrain Generator",
 	"version": "0.24",
 	"manifest_version": 3,
 	"action": {
