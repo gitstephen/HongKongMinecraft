@@ -34,7 +34,7 @@ const DIRECTIONS8 = [
 const COLORS = { 
     SKY_TOP: '#87A9FE',
 	SKY_BOTTOM: '#AAD0FC',
-	OCEAN: '#0A2F6B'
+	OCEAN: '#082656'
 };
 
 const MATERIALS = {
@@ -92,7 +92,7 @@ function loadTexture(file) {
 
 const textureLoader = new THREE.TextureLoader();  
 
-const makeMaterial = (map) => new THREE.MeshStandardMaterial({ map, roughness: 0.8, metalness: 0, flatShading: true });
+const makeMaterial = (map) => new THREE.MeshLambertMaterial({ map, flatShading: true });
 const makeAlphaMaterial = (map, a) => new THREE.MeshStandardMaterial({ 
 		map, 
 		roughness: 0.8, 
@@ -252,56 +252,54 @@ async function load() {
 		tex.repeat.set(OCEAN_SIZE / tileSize, OCEAN_SIZE / tileSize);
 		return tex;
 	}
-	// --- 1. 下層：深海底層 (唔透明，壓底) ---
-	const deepMat = new THREE.MeshStandardMaterial({
-		map: createWaterTexture(32, COLORS.OCEAN), // 深藍
+		// --- 1. 下層：深海底層 (唔透明，壓底) ---
+		// 共用方法，唔使寫兩次 PlaneGeometry
+	const createOceanLayer = (color, y, opts = {}) => {
+	  const mat = new THREE.MeshStandardMaterial({
+		map: createWaterTexture(32, color),
 		color: 0xffffff,
-		roughness: 1.0,
-		metalness: 0,
+		roughness: opts.roughness ?? 0.8,
+		metalness: opts.metalness ?? 0.1,
+		transparent: opts.transparent ?? true,
+		opacity: opts.opacity ?? 1,
 		fog: true,
-		transparent: false // 底層完全唔透，當作海底色
-	}); 
-	const deepMesh = new THREE.Mesh(
-		new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE),
-		deepMat
-	);
-	deepMesh.rotation.x = -Math.PI / 2;
-	deepMesh.position.set(0, -1.5, 0); // 比上層低 0.7格
-	deepMesh.receiveShadow = false;
-	scene.add(deepMesh);
+		depthWrite: opts.depthWrite ?? false,
+	  });
+	  mat.map.wrapS = mat.map.wrapT = THREE.RepeatWrapping;
 
-	// --- 2. 上層：淺水表層 (半透明，有波紋) ---
-	const shallowMat = new THREE.MeshStandardMaterial({
-		map: createWaterTexture(32, '#2A7FBE'), // 淺藍
-		color: 0xffffff,
-		roughness: 0.8,
-		metalness: 0.1,
-		transparent: true,
-		fog: true,
-		opacity: 0.3, // 關鍵：半透明先見到下面深色
-		depthWrite: false // 關鍵：兩層透明先唔會打交閃爍
+	  const mesh = new THREE.Mesh(
+		new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE),
+		mat
+	  );
+	  mesh.rotation.x = -Math.PI / 2;
+	  mesh.position.set(0, y, 0);
+	  mesh.renderOrder = opts.renderOrder ?? 0;
+	  mesh.receiveShadow = false;
+	  return { mesh, mat };
+	};
+
+	// 1. 下層：深海底層 - 完全唔透，當背景色
+	const { mesh: deepMesh } = createOceanLayer(COLORS.OCEAN, -1.5, {
+	  roughness: 1,
+	  metalness: 0,
+	  transparent: false,
+	  depthWrite: true,
+	  opacity: 1,
+	  renderOrder: 0
 	});
-	const surfaceMesh = new THREE.Mesh(
-		new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE),
-		shallowMat
-	);
-	surfaceMesh.rotation.x = -Math.PI / 2;
-	surfaceMesh.position.set(0, -0.75, 0); // 高過深海
-	surfaceMesh.receiveShadow = false;
 
-	// 令上層一定畫喺下層上面
-	surfaceMesh.renderOrder = 1;
-	deepMesh.renderOrder = 0;
-	scene.add(surfaceMesh);
-	// 想要個海有少少郁動，做深淺閃爍
+	// 2. 上層：淺水表層 - 半透明
+	const { mesh: surfaceMesh, mat: shallowMat } = createOceanLayer('#2A7FBE', -0.75, {
+	  roughness: 0.8,
+	  metalness: 0.1,
+	  transparent: true,
+	  opacity: 0.5,
+	  depthWrite: false,
+	  renderOrder: 1
+	});
 
-	/* function animateOcean() {
-		const time = Date.now() * 0.0003;
-		// 上層慢慢移，做水流
-		shallowMat.map.offset.x = time * 0.5;
-		shallowMat.map.offset.y = time * 0.2;
-	} */
-
+	scene.add(deepMesh, surfaceMesh);
+ 
 	///////////////////////////////////////////////////////////////////////////////////
 	 
 	// 相機視角改為睇香港本身，唔係海洋
@@ -379,31 +377,19 @@ async function load() {
 	// 內陸 - 綠色 Box
 	const landGeo = new THREE.BoxGeometry(1, LAND_HEIGHT, 1);
 	//LAND
-	const landTopText = loadTexture(
-			"./images/grass_top.png"
-		);	
+	const matTextures = {
+		side: makeMaterial(loadTexture("./images/grass_block.png")),
+		top: makeMaterial(loadTexture("./images/grass_top.png")),
+		bottom: makeMaterial(loadTexture("./images/brown_concrete_powder.png")),
+	};
 
-	const landSideText = loadTexture(
-			"./images/grass_block.png"
-		);	
-		
-	const landBottomText = loadTexture(
-			"./images/brown_concrete_powder.png"
-		);	
-		
 	const landMaterials = [
-		//+X 右面 right
-		makeMaterial(landSideText),
-		//-X 左面 left
-		makeMaterial(landSideText),
-		//+Y 上面 top
-		makeMaterial(landTopText),
-		// -Y 下面 bottom
-		makeMaterial(landBottomText),
-		//+Z 前面 front
-		makeMaterial(landSideText),
-		//-Z 後面 back
-		makeMaterial(landSideText)   
+		matTextures.side, 
+		matTextures.side, 
+		matTextures.top, 
+		matTextures.bottom, 
+		matTextures.side, 
+		matTextures.side
 	];
 
 	const landMesh = new THREE.InstancedMesh(landGeo, landMaterials, innerLandSet.size);
@@ -423,30 +409,15 @@ async function load() {
 	scene.add(landMesh);
 
 	// 沙灘 - 沙色 Box
-	const beachGeo = new THREE.BoxGeometry(1, COAST_HEIGHT, 1); 
-	const sandTopTexture = loadTexture(
-			"./images/sand_top.png"
-		);	
+	const beachGeo = new THREE.BoxGeometry(1, COAST_HEIGHT, 1);  
 
-	const sandSideTexture = loadTexture(
-			"./images/sand_side.png"
-		); 
-		
-	const beachMaterials = [
-		//+X 右面 right
-		makeMaterial(sandSideTexture),
-		//-X 左面 left
-		makeMaterial(sandSideTexture),
-		//+Y 上面 top
-		makeMaterial(sandTopTexture),
-		// -Y 下面 bottom
-		makeMaterial(sandSideTexture),
-		//+Z 前面 front
-		makeMaterial(sandSideTexture),
-		//-Z 後面 back
-		makeMaterial(sandSideTexture)  
-	];
-
+	const beachTexs = {
+	  side: makeMaterial(loadTexture("./images/sand_side.png")),
+	  top: makeMaterial(loadTexture("./images/sand_top.png"))	 
+	};
+	
+	const beachMaterials = [beachTexs.side, beachTexs.side, beachTexs.top, beachTexs.side, beachTexs.side, beachTexs.side];
+	
 	const beachMesh = new THREE.InstancedMesh(beachGeo, beachMaterials, beachSet.size);
 	beachMesh.receiveShadow = false;
 
@@ -481,22 +452,10 @@ async function load() {
 	//water texture 
 	const waterTopText = loadTexture(
 			"./images/light_blue_wool.png"
-		);	
-		
-	const waterMaterials = [
-		//+X 右面 right
-		makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
-		//-X 左面 left
-		makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
-		//+Y 上面 top
-		makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
-		// -Y 下面 bottom
-		makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
-		//+Z 前面 front
-		makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY),
-		//-Z 後面 back
-		makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY)   
-	];	
+		);	 
+ 
+	const waterMaterials =  makeAlphaMaterial(waterTopText, MATERIALS.SHALLOW_OPACITY);
+ 	
 	const beachwMesh = new THREE.InstancedMesh(shallowGeo, waterMaterials, shallowSet.size);
 
 	let si=0;
@@ -509,25 +468,6 @@ async function load() {
 	scene.add(beachwMesh);
 
 	// ===== 7. 高山 - 用原本 mount.json，比例喺代碼計 =====  
-	const stoneTopText = loadTexture(
-			"./images/stone.png"
-		);	 
-		
-	const mountMaterials = [
-		//+X 右面 right
-		makeMaterial(stoneTopText),
-		//-X 左面 left
-		makeMaterial(stoneTopText),
-		//+Y 上面 top
-		makeMaterial(stoneTopText),
-		// -Y 下面 bottom
-		makeMaterial(stoneTopText),
-		//+Z 前面 front
-		makeMaterial(stoneTopText),
-		//-Z 後面 back
-		makeMaterial(stoneTopText)
-	];
-
 	const LAND_SURFACE_Y = LAND_HEIGHT / 2;  // 綠色陸地 Box 0.6高，頂部 0.3
 	const BEACH_SURFACE_Y = 1; // 沙灘 Box 0.35高，位置-0.12，頂部 0.055
 
@@ -586,6 +526,14 @@ async function load() {
 		return sprite;
 	}
 
+	const stoneTopText = loadTexture(
+			"./images/stone.png"
+		);	 
+		
+	const stoneMats = makeMaterial(stoneTopText);
+		
+	const mountMaterials = stoneMats;
+	
 	const terraGeo = new THREE.BoxGeometry(1, 1, 1);
 	const count = mountGeo.features.length;
 	const terraMesh = new THREE.InstancedMesh(terraGeo, mountMaterials, count);
@@ -602,7 +550,7 @@ async function load() {
 		const worldZ = centerZ - grid.worldZ + 2;
 
 		dummy.position.set(worldX, worldY, worldZ);
-		dummy.scale.set(1, boxH, 1);
+		dummy.scale.set(1.5, boxH, 1.5);
 		dummy.updateMatrix();
 
 		terraMesh.setMatrixAt(i, dummy.matrix);
@@ -613,107 +561,85 @@ async function load() {
 		scene.add(label) 
 	});
 	
-	terraMesh.instanceMatrix.needsUpdate = true;
-	
-	scene.add(terraMesh);   
- 
- 
- // === 1. 生成隨機貼圖 ===
-function makeNoiseTexture(color1, color2){
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = color1;
-  ctx.fillRect(0,0,64,64);
-  for(let i=0;i<300;i++){
-    ctx.fillStyle = color2 + Math.floor(Math.random()*60).toString(16).padStart(2,'0');
-    ctx.fillRect(Math.random()*64, Math.random()*64, 2, 2);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.magFilter = THREE.NearestFilter;
-  return tex;
-}
+	terraMesh.instanceMatrix.needsUpdate = true;	
+	scene.add(terraMesh); 
 
-const textures = [
-  makeNoiseTexture('#8a7a6a', '#5a4a3a'),
-  makeNoiseTexture('#9a9a8a', '#6a6a5a'),
-  makeNoiseTexture('#a0a0a0', '#707070'),
-  makeNoiseTexture('#c2b8a3', '#8a7a6a'), // 雪岩混合
-];
-const materials = textures.map(t => new THREE.MeshStandardMaterial({ map: t }));
+	const stoneMaterials = [
+		"rock_block1.png",
+		"rock_block2.png", 
+		"rock_block3.png"
+	].map(f => makeMaterial(loadTexture(`./images/${f}`)));
+		 
+	// === 2. 預算每個材質要多少方塊 ===
+	const BLOCK_H = 2/3, BLOCK_W = 1, MAX_MH = 5;
+	const mountainsData = mountGeo.features.map(f => {
+	  let mh = Math.min(MAX_MH, Math.max(1, Math.round(f.properties.elevation / CELL_M)));
+	  return { f, mh, baseW: mh*2 };
+	});
 
-// === 2. 預算每個材質要多少方塊 ===
-const BLOCK_H = 2/3, BLOCK_W = 1, MAX_MH = 5;
-const mountainsData = mountGeo.features.map(f => {
-  let mh = Math.min(MAX_MH, Math.max(1, Math.round(f.properties.elevation / CELL_M)));
-  return { f, mh, baseW: mh*2 };
-});
+	const counts = new Array(stoneMaterials.length).fill(0);
+	const assignments = []; // 存每個方塊要用哪個材質
+	mountainsData.forEach(({mh, baseW}) => {
+	  for(let y=0;y<mh;y++){
+		const size = Math.ceil(baseW * (1 - y/mh));
+		for(let x=0;x<size;x++){
+		  for(let z=0;z<size;z++){
+			if(Math.random()<0.2 && (x===0||z===0||x===size-1||z===size-1)) continue; // 不規則邊緣
+			const matIdx = Math.floor(Math.random()*stoneMaterials.length);
+			assignments.push(matIdx);
+			counts[matIdx]++;
+		  }
+		}
+	  }
+	});
 
-const counts = new Array(materials.length).fill(0);
-const assignments = []; // 存每個方塊要用哪個材質
-mountainsData.forEach(({mh, baseW}) => {
-  for(let y=0;y<mh;y++){
-    const size = Math.ceil(baseW * (1 - y/mh));
-    for(let x=0;x<size;x++){
-      for(let z=0;z<size;z++){
-        if(Math.random()<0.2 && (x===0||z===0||x===size-1||z===size-1)) continue; // 不規則邊緣
-        const matIdx = Math.floor(Math.random()*materials.length);
-        assignments.push(matIdx);
-        counts[matIdx]++;
-      }
-    }
-  }
-});
+	// === 3. 為每種貼圖建一個 InstancedMesh ===
+	const unitGeo = new THREE.BoxGeometry(1,1,1);
+	const meshes = stoneMaterials.map((mat, i) => {
+	  const m = new THREE.InstancedMesh(unitGeo, mat, counts[i]);
+	  m.castShadow = m.receiveShadow = true;
+	  return m;
+	});
+	const cursors = new Array(stoneMaterials.length).fill(0);
+	 
+	// === 4. 堆金字塔 ===
+	let globalIdx = 0;
+	mountainsData.forEach(({f, mh, baseW}) => {
+	  const [lon, lat] = f.geometry.coordinates;
+	  const grid = lonLatToGrid(lon, lat);
+	  const cx = grid.worldX - centerX - 1;
+	  const cz = centerZ - grid.worldZ + 2;
 
-// === 3. 為每種貼圖建一個 InstancedMesh ===
-const unitGeo = new THREE.BoxGeometry(1,1,1);
-const meshes = materials.map((mat, i) => {
-  const m = new THREE.InstancedMesh(unitGeo, mat, counts[i]);
-  m.castShadow = m.receiveShadow = true;
-  return m;
-});
-const cursors = new Array(materials.length).fill(0);
- 
-// === 4. 堆金字塔 ===
-let globalIdx = 0;
-mountainsData.forEach(({f, mh, baseW}) => {
-  const [lon, lat] = f.geometry.coordinates;
-  const grid = lonLatToGrid(lon, lat);
-  const cx = grid.worldX - centerX - 1;
-  const cz = centerZ - grid.worldZ + 2;
+	  for(let y=0;y<mh;y++){
+		const size = Math.ceil(baseW * (1 - y/mh));
+		const yPos = LAND_SURFACE_Y + y*BLOCK_H + BLOCK_H/2;
+		const offset = size*BLOCK_W/2 - BLOCK_W/2;
 
-  for(let y=0;y<mh;y++){
-    const size = Math.ceil(baseW * (1 - y/mh));
-    const yPos = LAND_SURFACE_Y + y*BLOCK_H + BLOCK_H/2;
-    const offset = size*BLOCK_W/2 - BLOCK_W/2;
+		for(let x=0;x<size;x++){
+		  for(let z=0;z<size;z++){
+			const matIdx = assignments[globalIdx++];
+			if(matIdx === undefined) continue; // 被不規則跳過的
+			// 上面不規則判斷要和預算時一致，這裡簡化重算一次
+			if(Math.random()<0.2 && (x===0||z===0||x===size-1||z===size-1)) {
+			   globalIdx--; continue; 
+			}
 
-    for(let x=0;x<size;x++){
-      for(let z=0;z<size;z++){
-        const matIdx = assignments[globalIdx++];
-        if(matIdx === undefined) continue; // 被不規則跳過的
-        // 上面不規則判斷要和預算時一致，這裡簡化重算一次
-        if(Math.random()<0.2 && (x===0||z===0||x===size-1||z===size-1)) {
-           globalIdx--; continue; 
-        }
+			dummy.position.set(cx + x*BLOCK_W - offset, yPos, cz + z*BLOCK_W - offset);
+			dummy.scale.set(BLOCK_W, BLOCK_H, BLOCK_W);
+			dummy.rotation.set(0,0,0);
+			dummy.updateMatrix();
+			
+			const mesh = meshes[matIdx];
+			mesh.setMatrixAt(cursors[matIdx]++, dummy.matrix);
+		  }
+		}
+	  }
+	});
 
-        dummy.position.set(cx + x*BLOCK_W - offset, yPos, cz + z*BLOCK_W - offset);
-        dummy.scale.set(BLOCK_W, BLOCK_H, BLOCK_W);
-        dummy.rotation.set(0,0,0);
-        dummy.updateMatrix();
-        
-        const mesh = meshes[matIdx];
-        mesh.setMatrixAt(cursors[matIdx]++, dummy.matrix);
-      }
-    }
-  }
-});
-
-meshes.forEach(m => {
-  m.instanceMatrix.needsUpdate = true;
-  scene.add(m);
-});
- 
- 
+	meshes.forEach(m => {
+	  m.instanceMatrix.needsUpdate = true;
+	  scene.add(m);
+	}); 
 
 	// 8. ===== 靜態方塊雲 - 擺幾個就得 =====
 	function createStaticCloud(x, z, scale = 1) {
@@ -758,21 +684,29 @@ meshes.forEach(m => {
 	cloudGroup.add(createStaticCloud(-200, 170, 0.9));
 	cloudGroup.add(createStaticCloud(150, -80, 1));
 
-	scene.add(cloudGroup);
-
-	function updateInfiniteOcean() {
-		// 等塊海嘅中心永遠喺你腳下，但Y唔跟，唔係你飛起塊海都飛起
-		surfaceMesh.position.x = camera.position.x;
-		surfaceMesh.position.z = camera.position.z;
-		deepMesh.position.x = camera.position.x;
-		deepMesh.position.z = camera.position.z;
-	} 
+	scene.add(cloudGroup); 
 	
 	// ===== 9. 渲染 =====
+	// ===== 9. 渲染 =====
+	const timer = new THREE.Timer();
+	
+	function animateOcean(d, elp) {
+		// delta 係同幀率無關嘅時間，唔會因為電腦卡就快慢唔同
+		shallowMat.map.offset.x += d * 0.008;
+		shallowMat.map.offset.y += d * 0.005;
+		surfaceMesh.position.y = -0.75 + Math.sin(elp * 0.8) * 0.05;
+	}
+	
 	function animate(){
 		requestAnimationFrame(animate);
-		//updateInfiniteOcean();
 		
+		timer.update(); // Timer 必須要 update!
+ 
+		const delta = timer.getDelta();
+		const elapsed = timer.getElapsed();
+		
+		animateOcean(delta, elapsed);
+
 		controls.update();
 		renderer.render(scene, camera);
 	}
