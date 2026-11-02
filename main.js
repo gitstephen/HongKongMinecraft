@@ -182,7 +182,7 @@ async function load() {
 	controls.minDistance = 10;
 	controls.maxDistance = 200;
 	controls.maxPolarAngle = Math.PI / 2 - 0.05;// 唔俾超過水平線
-	controls.minPolarAngle = 0;
+	controls.minPolarAngle = 0.1;
 	controls.enableZoom = true;
 	controls.zoomSpeed = 1;
 
@@ -663,8 +663,8 @@ async function load() {
 	}
 
 	meshes.forEach(m => {
-	  m.instanceMatrix.needsUpdate = true;
-	  scene.add(m);
+		m.instanceMatrix.needsUpdate = true;
+		scene.add(m);
 	}); 
 
 	// 8. ===== 靜態方塊雲 - 擺幾個就得 =====
@@ -712,12 +712,11 @@ async function load() {
 	cloudGroup.add(createStaticCloud(250, 60, 1.2));
 	cloudGroup.add(createStaticCloud(-250, -150, 1));
 	cloudGroup.add(createStaticCloud(0, -120, 1.5)); // 正前面大大嚿
-	cloudGroup.add(createStaticCloud(-200, 170, 0.9));
+	cloudGroup.add(createStaticCloud(-100, 120, 0.9));
 	cloudGroup.add(createStaticCloud(150, -80, 1));
 
 	scene.add(cloudGroup); 
-	
-	// ===== 9. 渲染 =====
+
 	// ===== 9. 渲染 =====
 	const timer = new THREE.Timer();
 
