@@ -635,20 +635,34 @@ async function load() {
 			
 			// --- A. 樹幹，2格高 ---
 			const HALF = 0.5;
-			for (let ty = 0; ty < 2; ty++) {
+			
+			// --- 隨機高度：2 ~ 5格 ---
+			const trunkHeight = 2 + Math.floor(Math.random() * 3); // 2,3,4,5
+			// 有啲樹想佢特別高，例如 10% 機會變大樹
+			const isBigTree = Math.random() < 0.1;
+			const finalHeight = isBigTree ? trunkHeight + 2 : trunkHeight;
+			// A. 樹幹
+			for (let ty = 0; ty < finalHeight; ty++) {
 				woodCubes.push({
 					x: gx,
-					y: baseY + ty * HALF + HALF/2, // 0.25, 0.75
+					y: baseY + ty * HALF + HALF/2,
 					z: gz
 				});
 			}
-			const leafBaseY = baseY + 2 * HALF; // 樹幹得返1米高
-			for (let ly = 0; ly < 2; ly++) {
+			// B. 樹葉，喺樹頂
+			const leafBaseY = baseY + finalHeight * HALF;
+			const leafLayers = isBigTree ? 3 : 2; // 大樹葉多一層
+			for (let ly = 0; ly < leafLayers; ly++) {
 				for (let lx = -1; lx <= 1; lx++) {
 					for (let lz = -1; lz <= 1; lz++) {
-						if (ly === 1 && Math.abs(lx) === 1 && Math.abs(lz) === 1) continue;
+						// 頂層削角，似返棵樹
+						if (ly === leafLayers - 1 && Math.abs(lx) === 1 && Math.abs(lz) === 1) {
+							if (Math.random() < 0.6) continue; // 隨機削，唔會太四方
+						}
+						// 最底層中間留個窿接樹幹
+						if (ly === 0 && lx === 0 && lz === 0) continue;
 						leafCubes.push({
-							x: gx + lx * XZ_SCALE * HALF, // 闊度都縮一半，唔會黐埋一舊
+							x: gx + lx * XZ_SCALE * HALF,
 							y: leafBaseY + ly * HALF + HALF/2,
 							z: gz + lz * XZ_SCALE * HALF
 						});
