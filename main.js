@@ -1,7 +1,7 @@
 import * as THREE from './scripts/three.module.js';
 import { OrbitControls } from './scripts/OrbitControls.js';
 
-// ===== 1. 你原本的 Mercator 公式，完全保留 =====
+
 /**************************************************
  * Config
  **************************************************/
@@ -538,185 +538,119 @@ async function load() {
 		return sprite;
 	}
 
-	const stoneTopText = loadTexture(
-			"./images/stone.png"
-		);	 
-		
-	const stoneMats = makeMaterial(stoneTopText);
-		
-	const mountMaterials = stoneMats;
+	const stoneTex = {
+			side: makeMaterial(loadTexture("./images/brown_concrete_powder.png")),
+			top: makeMaterial(loadTexture("./images/green_wool.png")),
+			bottom: makeMaterial(loadTexture("./images/rock_block1.png")),
+	}; 
 	
-	const terraGeo = new THREE.BoxGeometry(1, 1, 1);
-	const count = mountGeo.features.length;
-	const terraMesh = new THREE.InstancedMesh(terraGeo, mountMaterials, count);
-
-	mountGeo.features.forEach((f, i) => {
+	const stoneMaterials = [
+		stoneTex.side, 
+		stoneTex.side, 
+		stoneTex.top, 
+		stoneTex.bottom, 
+		stoneTex.side, 
+		stoneTex.side
+	]; 
+	 
+	const landData = [];
+	const BLOCK_SIZE = 150; // 957m / 50 = 19格高，你而家個值
+	
+	mountGeo.features.forEach(f => {
 		const [lon, lat] = f.geometry.coordinates;
 		const { elevation, name } = f.properties;
 		const grid = lonLatToGrid(lon, lat);
-		const mh = Math.round(elevation / CELL_SIZE); 
-  
-		const boxH = mh; 
-		const worldX = grid.worldX - centerX - 1;
-		const worldY = LAND_SURFACE_Y + boxH / 2; // 底部貼地
-		const worldZ = centerZ - grid.worldZ + 2;
-
-		dummy.position.set(worldX, worldY, worldZ);
-		dummy.scale.set(1.5, boxH, 1.5);
-		dummy.updateMatrix();
-
-		terraMesh.setMatrixAt(i, dummy.matrix);
-
-		// 山頂加 3格高處放名
-		const label = makeTextSprite(name, elevation);
-		label.position.set(worldX, LAND_SURFACE_Y + mh + 3, worldZ); // offser
-		scene.add(label) 
-	});
-	
-	terraMesh.instanceMatrix.needsUpdate = true;	
-	scene.add(terraMesh); 
-
-	const stoneMaterials = [
-		"rock_block1.png",
-		"rock_block2.png", 
-		"rock_block3.png"
-	].map(f => makeMaterial(loadTexture(`./images/${f}`)));
-		 
-	// === 2. 預算每個材質要多少方塊 ===
-	const BLOCK_H = 2/3, BLOCK_W = 1, MAX_MH = 5;
-	const mountainsData = mountGeo.features.map(f => {
-	  let mh = Math.min(MAX_MH, Math.max(1, Math.round(f.properties.elevation / CELL_SIZE)));
-	  return { f, mh, baseW: mh*2 };
-	});
-
-	const mountainBlocks = [];
-	const counts = new Array(stoneMaterials.length).fill(0);
-
-	mountainsData.forEach(({ f, mh, baseW }) => {
+		const mh = Math.max(3, Math.round(elevation / BLOCK_SIZE)); // 最少3格先似山
+		const baseRadius = Math.max(2, mh * 0.7); // 山腳闊度 = 高度*0.7，大帽山19格高，腳就13格闊
+		const worldX = grid.worldX - centerX;
+		const worldZ = centerZ - grid.worldZ;
+	  
+		// 由底到頂，一層一層疊
 		for (let y = 0; y < mh; y++) {
-			const size = Math.ceil(baseW * (1 - y / mh));
-
-			for (let x = 0; x < size; x++) {
-				for (let z = 0; z < size; z++) {
-					const isEdge =
-						x === 0 ||
-						z === 0 ||
-						x === size - 1 ||
-						z === size - 1;
-
-					if (isEdge && Math.random() < 0.2) {
-						continue;
-					}
-
-					const materialIndex = Math.floor(
-						Math.random() * stoneMaterials.length
-					);
-
-					mountainBlocks.push({
-						f,
-						mh,
-						y,
-						x,
-						z,
-						size,
-						materialIndex
+			const progress = y / mh; // 0=山腳, 1=山頂
+			const radius = baseRadius * (1 - progress * 0.85); // 越高越細，山頂留15%
+			const r = Math.ceil(radius);
+			for (let dx = -r; dx <= r; dx++) {
+				for (let dz = -r; dz <= r; dz++) {
+					if (dx*dx + dz*dz > radius*radius) continue; // 圓形，唔係方形
+					landData.push({
+					  x: worldX + dx * 1.5, // 1.5係你之前個闊度
+					  y: LAND_SURFACE_Y + y + 0.5,
+					  z: worldZ + dz * 1.5
 					});
-
-					counts[materialIndex]++;
 				}
 			}
 		}
+		
+		const label = makeTextSprite(name, elevation);
+		label.position.set(worldX, LAND_SURFACE_Y + mh + 4, worldZ);
+		label.renderOrder = 2; 
+		
+		scene.add(label)
 	});
-	// === 3. 為每種貼圖建一個 InstancedMesh ===
-	const unitGeo = new THREE.BoxGeometry(1,1,1);
-	const meshes = stoneMaterials.map((mat, i) => {
-	  const m = new THREE.InstancedMesh(unitGeo, mat, counts[i]);
-	  m.castShadow = m.receiveShadow = true;
-	  return m;
+	
+	// 而家先係真正嘅數量
+	const terraGeo = new THREE.BoxGeometry(1, 1, 1);
+	const terraMesh = new THREE.InstancedMesh(terraGeo, stoneMaterials, landData.length);
+	terraMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+	
+	landData.forEach((p, i) => {
+		  dummy.position.set(p.x, p.y, p.z);
+		  dummy.scale.set(1.5, 1, 1.5); // 每粒都係1格高，唔係成條柱
+		  dummy.updateMatrix();
+		  terraMesh.setMatrixAt(i, dummy.matrix);
 	});
-	const cursors = new Array(stoneMaterials.length).fill(0);
-
-	for (const block of mountainBlocks) {
-		const { f, y, x, z, size, materialIndex } = block;
-		const [lon, lat] = f.geometry.coordinates;
-		const grid = lonLatToGrid(lon, lat);
-
-		const cx = grid.worldX - centerX - 1;
-		const cz = centerZ - grid.worldZ + 2;
-		const yPos = LAND_SURFACE_Y + y * BLOCK_H + BLOCK_H / 2;
-		const offset = size * BLOCK_W / 2 - BLOCK_W / 2;
-
-		dummy.position.set(
-			cx + x * BLOCK_W - offset,
-			yPos,
-			cz + z * BLOCK_W - offset
-		);
-
-		dummy.scale.set(BLOCK_W, BLOCK_H, BLOCK_W);
-		dummy.rotation.set(0, 0, 0);
-		dummy.updateMatrix();
-
-		meshes[materialIndex].setMatrixAt(
-			cursors[materialIndex]++,
-			dummy.matrix
-		);
-	}
-
-	meshes.forEach(m => {
-		m.instanceMatrix.needsUpdate = true;
-		scene.add(m);
-	}); 
+	
+	terraMesh.instanceMatrix.needsUpdate = true;
+	terraMesh.computeBoundingSphere();
+	
+	scene.add(terraMesh);
+	
+ 
 
 	// 8. ===== 靜態方塊雲 - 擺幾個就得 =====
-	const cloudBox = new THREE.BoxGeometry(12, 2, 12);
-	const cloudMaterial = new THREE.MeshStandardMaterial({
-		color: 0xffffff,
-		flatShading: true,
-		roughness: 1,
-		metalness: 0,
-		fog: true
-	});
-
-	function createStaticCloud(x, z, scale = 1) {
-		const group = new THREE.Group();
-
-		const positions = [
-			[0, 0, 0],
-			[12, 0, 0],
-			[-12, 0, 0],
-			[0, 0, 12],
-			[0, 0, -12],
-			[12, 0, 12],
-			[-12, 0, 12],
-			[12, 0, -12],
-			[-12, 0, -12],
-			[0, 2, 0],
-			[2, 2, 2]
-		];
-
-		for (const [px, py, pz] of positions) {
-			const mesh = new THREE.Mesh(cloudBox, cloudMaterial);
-			mesh.position.set(px, py, pz);
-			group.add(mesh);
+	const cloudGeo = new THREE.BoxGeometry(1.2, 0.8, 1.2); // 薄啲
+	const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, fog: true });
+	function makeCloud(cx, cy, cz, w, d) {
+		// w,d = 闊深，例如 8x6 就係8粒x6粒大
+		const maxBlocks = w * d * 3;
+		const mesh = new THREE.InstancedMesh(cloudGeo, cloudMat, maxBlocks);
+		const dummy = new THREE.Object3D();
+		let idx = 0;
+		// 中心點，用距離做圓形/橢圓形雲，唔係方形
+		for (let x = -w/2; x < w/2; x++) {
+			for (let z = -d/2; z < d/2; z++) {
+				const dist = (x*x)/(w*w/4) + (z*z)/(d*d/4); // 橢圓距離
+				if (dist > 1) continue; // 出界唔畫，變圓雲
+				if (dist > 0.6 && Math.random() < 0.5) continue; // 邊緣隨機缺口，唔同形狀
+				const layers = dist < 0.3 ? 3 : (dist < 0.7 ? 2 : 1); // 中間厚3層，邊緣1層
+				for (let y = 0; y < layers; y++) {
+					dummy.position.set(
+					  cx + x * 1.1, // 1.1少少重疊，睇落一嚿過
+					  cy + y * 0.8,
+					  cz + z * 1.1
+					);
+					dummy.scale.set(1, 1, 1);
+					dummy.updateMatrix();
+					mesh.setMatrixAt(idx++, dummy.matrix);
+				}
+			}
 		}
-
-		group.position.set(x, 20, z);
-		group.scale.setScalar(scale);
-
-		return group;
+		mesh.count = idx;
+		mesh.instanceMatrix.needsUpdate = true;
+		mesh.computeBoundingSphere();
+		return mesh;
 	}
-
-	// 擺5嚿喺你個世界唔同方位
-	const cloudGroup = new THREE.Group();
-
-	cloudGroup.add(createStaticCloud(250, 60, 1.2));
-	cloudGroup.add(createStaticCloud(-250, -150, 1));
-	cloudGroup.add(createStaticCloud(0, -120, 1.5)); // 正前面大大嚿
-	cloudGroup.add(createStaticCloud(-100, 120, 0.9));
-	cloudGroup.add(createStaticCloud(150, -80, 1));
-
-	scene.add(cloudGroup); 
-
+	// 5朵全部唔同大細，但全部最多3層，一嚿過
+	const cloudList = [
+		makeCloud(0, 60, -20, 10, 7),   // 大扁雲
+		makeCloud(40, 70, 10, 7, 7),    // 細厚雲 3層
+		makeCloud(-50, 55, 30, 15, 5),  // 長條雲
+		makeCloud(20, 80, 0, 6, 6),   // 細圓雲
+		makeCloud(-30, 65, -40, 10, 9), // 中型不規則
+	];
+	cloudList.forEach(c => scene.add(c)); 	 
+	 
 	// ===== 9. 渲染 =====
 	const timer = new THREE.Timer();
 
@@ -733,7 +667,7 @@ async function load() {
 	
 	function animate() {
 		if (document.hidden) {
-            setTimeout(animate, 1000 / 30); // 當頁面唔見，降幀率
+            setTimeout(animate,330); // 當頁面唔見，降幀率
 		}
 
 		requestAnimationFrame(animate);
