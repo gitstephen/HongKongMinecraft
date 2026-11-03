@@ -302,12 +302,7 @@ async function load() {
 	});
 
 	scene.add(deepMesh, surfaceMesh);
- 
-	///////////////////////////////////////////////////////////////////////////////////
-	 
-	// 相機視角改为睇香港本身，唔係海洋
-	const oceanW = COLS;
-	const oceanH = ROWS;
+  
 
 	fitCameraToGrid(COLS * 2, ROWS * 2) // 睇大啲，見到無限海  
 
@@ -539,12 +534,12 @@ async function load() {
 	}
 
 	const stoneTex = {
-			side: makeMaterial(loadTexture("./images/brown_concrete_powder.png")),
-			top: makeMaterial(loadTexture("./images/green_wool.png")),
-			bottom: makeMaterial(loadTexture("./images/rock_block1.png")),
+		side: makeMaterial(loadTexture("./images/brown_concrete_powder.png")),
+		top: makeMaterial(loadTexture("./images/green_wool.png")),
+		bottom: makeMaterial(loadTexture("./images/rock_block3.png"))
 	}; 
 	
-	const stoneMaterials = [
+	const soilMaterials = [
 		stoneTex.side, 
 		stoneTex.side, 
 		stoneTex.top, 
@@ -552,61 +547,156 @@ async function load() {
 		stoneTex.side, 
 		stoneTex.side
 	]; 
-	 
-	const landData = [];
-	const BLOCK_SIZE = 150; // 957m / 50 = 19格高，你而家個值
 	
+	const solidMatedrials = [
+		stoneTex.side, 
+		stoneTex.side, 
+		stoneTex.bottom, 
+		stoneTex.bottom, 
+		stoneTex.side, 
+		stoneTex.side
+	];  
+	
+	const landData = [];
+	const baseData = [];	
+	const topData = [];
+	const BLOCK_SIZE = 150; // 957 / 50 = 19.14，你之前 150 太大，變到成個山得幾格
+	const LAYER = 3;
+	const XZ_SCALE = 1;
+	const columnMax = new Map(); // key: "gx,gz" -> maxY
+	 
+	const trunkData = [];
+	const leavesData = [];
+	
+	const woodCubes = []; // 所有樹幹方塊
+	const leafCubes = []; // 所有樹葉方塊
+
 	mountGeo.features.forEach(f => {
 		const [lon, lat] = f.geometry.coordinates;
 		const { elevation, name } = f.properties;
 		const grid = lonLatToGrid(lon, lat);
-		const mh = Math.max(3, Math.round(elevation / BLOCK_SIZE)); // 最少3格先似山
-		const baseRadius = Math.max(2, mh * 0.7); // 山腳闊度 = 高度*0.7，大帽山19格高，腳就13格闊
+		const mh = Math.max(LAYER, Math.round(elevation / BLOCK_SIZE));
+		const baseRadius = mh * 0.7;
 		const worldX = grid.worldX - centerX;
 		const worldZ = centerZ - grid.worldZ;
-	  
-		// 由底到頂，一層一層疊
-		for (let y = 0; y < mh; y++) {
-			const progress = y / mh; // 0=山腳, 1=山頂
-			const radius = baseRadius * (1 - progress * 0.85); // 越高越細，山頂留15%
+		for (let y = 0; y <= mh; y++) {
+			const progress = y / mh;
+			const radius = baseRadius * (1 - progress * 0.85);
 			const r = Math.ceil(radius);
 			for (let dx = -r; dx <= r; dx++) {
 				for (let dz = -r; dz <= r; dz++) {
-					if (dx*dx + dz*dz > radius*radius) continue; // 圓形，唔係方形
-					landData.push({
-					  x: worldX + dx * 1.5, // 1.5係你之前個闊度
-					  y: LAND_SURFACE_Y + y + 0.5,
-					  z: worldZ + dz * 1.5
-					});
+					const distSq = dx*dx + dz*dz;
+					if (distSq > radius * radius) continue;
+					// 只留外殼 + 頂，唔要入面實心
+					const isEdge = distSq > (radius - 1.2) * (radius - 1.2);
+					if (!isEdge && y < mh - 1) continue;
+					const gx = worldX + dx * XZ_SCALE;
+					const gz = worldZ + dz * XZ_SCALE;
+					const key = `${Math.round(gx / XZ_SCALE)},${Math.round(gz / XZ_SCALE)}`;
+					// 如果呢條柱已經有更高嘅山，就skip
+					if ((columnMax.get(key) ?? -1) > y) continue;
+					columnMax.set(key, y);
+					const pos = {
+						x: gx,
+						y: LAND_SURFACE_Y + y + 0.5,
+						z: gz
+					};
+					if (y === mh) topData.push(pos);
+					else if (y === mh - 1) landData.push(pos); // 山頂下一層做草
+					else baseData.push(pos);
 				}
 			}
 		}
-		
 		const label = makeTextSprite(name, elevation);
 		label.position.set(worldX, LAND_SURFACE_Y + mh + 4, worldZ);
-		label.renderOrder = 2; 
+		scene.add(label);
 		
-		scene.add(label)
+		// --- 在山丘周圍加樹 --- 
+
+		// --- 方塊樹 ---
+		const TREE_COUNT = Math.round(mh * 1.5); // 大帽山 ~34棵
+		const minRadius = baseRadius * 1.1 + 1;
+		const maxRadius = baseRadius * 2.0; 
+
+		for (let i = 0; i < TREE_COUNT; i++) {
+			const angle = Math.random() * Math.PI * 2;
+			const r = minRadius + Math.sqrt(Math.random()) * (maxRadius - minRadius);
+			
+			const dx = Math.cos(angle) * r;
+			const dz = Math.sin(angle) * r;
+			
+			const gx = worldX + dx * XZ_SCALE;
+			const gz = worldZ + dz * XZ_SCALE;
+			
+			const key = `${Math.round(gx / XZ_SCALE)},${Math.round(gz / XZ_SCALE)}`;
+			if (columnMax.has(key)) continue;
+			
+			const baseY = LAND_SURFACE_Y;
+			
+			// --- A. 樹幹，2格高 ---
+			const HALF = 0.5;
+			for (let ty = 0; ty < 2; ty++) {
+				woodCubes.push({
+					x: gx,
+					y: baseY + ty * HALF + HALF/2, // 0.25, 0.75
+					z: gz
+				});
+			}
+			const leafBaseY = baseY + 2 * HALF; // 樹幹得返1米高
+			for (let ly = 0; ly < 2; ly++) {
+				for (let lx = -1; lx <= 1; lx++) {
+					for (let lz = -1; lz <= 1; lz++) {
+						if (ly === 1 && Math.abs(lx) === 1 && Math.abs(lz) === 1) continue;
+						leafCubes.push({
+							x: gx + lx * XZ_SCALE * HALF, // 闊度都縮一半，唔會黐埋一舊
+							y: leafBaseY + ly * HALF + HALF/2,
+							z: gz + lz * XZ_SCALE * HALF
+						});
+					}
+				}
+			}
+			
+			columnMax.set(key, 0); // 佔位
+		}
 	});
 	
-	// 而家先係真正嘅數量
-	const terraGeo = new THREE.BoxGeometry(1, 1, 1);
-	const terraMesh = new THREE.InstancedMesh(terraGeo, stoneMaterials, landData.length);
-	terraMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+	// --- Mesh 建立 ---	
+	function makeHillInstanced(data, mat, scale) {
+		if (!data.length) return null;	
+		const terraGeo = new THREE.BoxGeometry(1, 1, 1);
+		const mesh = new THREE.InstancedMesh(terraGeo, mat, data.length);
+		 
+		data.forEach((p, i) => {
+			dummy.position.set(p.x, p.y, p.z);
+			dummy.scale.set(scale.z, scale.y, scale.z);
+			dummy.updateMatrix();
+			mesh.setMatrixAt(i, dummy.matrix);
+		});
+		mesh.instanceMatrix.needsUpdate = true;
+		mesh.frustumCulled = false; // 大地形一定要關，否則computeBoundingSphere會cut走
+		mesh.castShadow = true; // 樹葉都投射，影會更密
+		mesh.receiveShadow = true;
+		mesh.computeBoundingSphere();
+		return mesh;
+	}  
 	
-	landData.forEach((p, i) => {
-		  dummy.position.set(p.x, p.y, p.z);
-		  dummy.scale.set(1.5, 1, 1.5); // 每粒都係1格高，唔係成條柱
-		  dummy.updateMatrix();
-		  terraMesh.setMatrixAt(i, dummy.matrix);
-	});
+	const hillScale = {x: XZ_SCALE, y:1, z: XZ_SCALE};
 	
-	terraMesh.instanceMatrix.needsUpdate = true;
-	terraMesh.computeBoundingSphere();
+	const baseMesh = makeHillInstanced(baseData, soilMaterials, hillScale); 
+	const soilMesh = makeHillInstanced(landData, solidMatedrials, hillScale); 
+	const peakMesh = makeHillInstanced(topData, stoneTex.bottom, hillScale); 
 	
-	scene.add(terraMesh);
+	scene.add(baseMesh, soilMesh, peakMesh);	
+    
+	const woodMaterial = new THREE.MeshLambertMaterial({ color: 0x8B5A2B }); // 木色
+	const leafMat = makeMaterial(loadTexture("./images/moss_block.png"));	
+	 
+	const treeScale = {x: XZ_SCALE * 0.5, y: 0.5, z: XZ_SCALE * 0.5};
 	
+	const woodMesh = makeHillInstanced(woodCubes, woodMaterial, treeScale);
+	const leafMesh = makeHillInstanced(leafCubes, leafMat, treeScale); 
  
+	scene.add(woodMesh, leafMesh); 
 
 	// 8. ===== 靜態方塊雲 - 擺幾個就得 =====
 	const cloudGeo = new THREE.BoxGeometry(1.2, 0.8, 1.2); // 薄啲
@@ -643,13 +733,14 @@ async function load() {
 	}
 	// 5朵全部唔同大細，但全部最多3層，一嚿過
 	const cloudList = [
-		makeCloud(0, 60, -20, 10, 7),   // 大扁雲
-		makeCloud(40, 70, 10, 7, 7),    // 細厚雲 3層
-		makeCloud(-50, 55, 30, 15, 5),  // 長條雲
-		makeCloud(20, 80, 0, 6, 6),   // 細圓雲
-		makeCloud(-30, 65, -40, 10, 9), // 中型不規則
+		makeCloud(0, 40, -20, 10, 7),   // 大扁雲
+		makeCloud(40, 35, 10, 7, 7),    // 細厚雲 3層
+		makeCloud(-50, 45, 30, 15, 5),  // 長條雲
+		makeCloud(20, 30, 0, 6, 6),   // 細圓雲
+		makeCloud(-30, 35, -40, 10, 9), // 中型不規則
 	];
 	cloudList.forEach(c => scene.add(c)); 	 
+ 
 	 
 	// ===== 9. 渲染 =====
 	const timer = new THREE.Timer();
